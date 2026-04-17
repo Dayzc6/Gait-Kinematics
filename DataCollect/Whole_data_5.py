@@ -8,6 +8,7 @@ import serial
 import time
 import csv
 import tkinter as tk
+import queue  # 引入队列用于异步写入
 from threading import Thread, Lock
 from scipy.spatial.transform import Rotation as R
 
@@ -127,6 +128,52 @@ def get_vicon_markers():
 
 VICON_MARKERS=get_vicon_markers()
 
+def generate_headers():
+    headers = ['Timestamp', 'Relative_Time(s)', 'Vicon_Frame_Num']
+    
+    for seg in VICON_SEGS:
+        headers.extend([f"Vicon_{seg}_X", f"Vicon_{seg}_Y", f"Vicon_{seg}_Z"])
+
+    for marker in VICON_MARKERS:
+        headers.extend([f"Vicon_{marker}_X", f"Vicon_{marker}_Y", f"Vicon_{marker}_Z"])
+
+    for imu in IMU_NAMES:
+        headers.extend([f"IMU_{imu}_Acc_X", f"IMU_{imu}_Acc_Y", f"IMU_{imu}_Acc_Z"])
+        headers.extend([f"IMU_{imu}_Gyro_X", f"IMU_{imu}_Gyro_Y", f"IMU_{imu}_Gyro_Z"])
+        headers.extend([f"IMU_{imu}_Roll", f"IMU_{imu}_Pitch", f"IMU_{imu}_Yaw"])
+        headers.extend([f"IMU_{imu}_Quat_x", f"IMU_{imu}_Quat_y", f"IMU_{imu}_Quat_z", f"IMU_{imu}_Quat_w"])
+        
+    return headers
+
+
+# ==================== 异步 CSV 写入类 ====================
+class AsyncCSVWriter(Thread):
+    """独立线程负责将队列中的数据写入磁盘，防止I/O阻塞采集"""
+    def __init__(self, file_path, header):
+        super().__init__(daemon=True)
+        self.file_path = file_path
+        self.header = header
+        self.data_queue = queue.Queue()
+        self.running = True
+        
+    def run(self):
+        with open(self.file_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(self.header)
+            while self.running or not self.data_queue.empty():
+                try:
+                    # 从队列获取数据，超时设置为0.1s以便检查running状态
+                    data = self.data_queue.get(timeout=0.1)
+                    writer.writerow(data)
+                    self.data_queue.task_done()
+                except queue.Empty:
+                    continue
+
+    def stop(self):
+        self.running = False
+
+
+"""
 # ==================== CSV 写入模块 ====================
 class CSV_Writer:
     def __init__(self, vicon_segs, vicon_markers, imu_names):    
@@ -140,11 +187,11 @@ class CSV_Writer:
         for marker in vicon_markers:
             self.headers.extend([f"Vicon_{marker}_X",f"Vicon_{marker}_Y",f"Vicon_{marker}_Z"])
 
-        for name in imu_names:
-            self.headers.extend([f"IMU_{name}_Acc_X", f"IMU_{name}_Acc_Y", f"IMU_{name}_Acc_Z"])
-            self.headers.extend([f"IMU_{name}_Gyro_X", f"IMU_{name}_Gyro_Y", f"IMU_{name}_Gyro_Z"])
-            self.headers.extend([f"IMU_{name}_Roll", f"IMU_{name}_Pitch", f"IMU_{name}_Yaw"])
-            self.headers.extend([f"IMU_{name}_Quat_x", f"IMU_{name}_Quat_y", f"IMU_{name}_Quat_z", f"IMU_{name}_Quat_w"])
+        for seg in imu_names:
+            self.headers.extend([f"IMU_{seg}_Acc_X", f"IMU_{seg}_Acc_Y", f"IMU_{seg}_Acc_Z"])
+            self.headers.extend([f"IMU_{seg}_Gyro_X", f"IMU_{seg}_Gyro_Y", f"IMU_{seg}_Gyro_Z"])
+            self.headers.extend([f"IMU_{seg}_Roll", f"IMU_{seg}_Pitch", f"IMU_{seg}_Yaw"])
+            self.headers.extend([f"IMU_{seg}_Quat_x", f"IMU_{seg}_Quat_y", f"IMU_{seg}_Quat_z", f"IMU_{seg}_Quat_w"])
 
         with open(self.filename, mode='w', newline='') as f:
             writer = csv.writer(f)
@@ -174,6 +221,7 @@ class CSV_Writer:
         with open(self.filename, mode='a', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(row_data)
+"""
 
 # ==================== Vicon 接收模块 ====================
 class Vicon_Thread(Thread):
@@ -351,6 +399,7 @@ class MainApp:
         self.is_recording = False
         self.record_thread = None
         self.csv_writer = None
+        self.async_writer = None
 
         # 3. 创建 GUI
         self.root = tk.Tk()
@@ -369,22 +418,32 @@ class MainApp:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def start_record(self):
+        file_name = f"subject_trial_{time.strftime('%Y%m%d_%H%M%S')}.csv"
+        headers = generate_headers() # 生成表头逻辑
+
+        # 启动异步写入器
+        self.async_writer = AsyncCSVWriter(file_name, headers)
+        self.async_writer.start()
+
         self.is_recording = True
+        # 启动高精度采集循环
+        # Thread(target=self.precise_recording_loop, daemon=True).start()
+
         self.btn_start.config(state=tk.DISABLED)
         self.btn_stop.config(state=tk.NORMAL)
         self.status_label.config(text="状态: 正在同步记录数据 (100Hz)...", fg="green")
         
         # 实例化 CSV 写入器，开始新文件
-        self.csv_writer = CSV_Writer(VICON_SEGS, VICON_MARKERS, IMU_NAMES)
+        # self.csv_writer = CSV_Writer(VICON_SEGS, VICON_MARKERS, IMU_NAMES)
         
-        # 🚀【终极武器：UDP 遥控 Vicon 开始录制】
+        # UDP 遥控 Vicon 开始录制
         try:
             udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             # 自动从 "192.168.137.33" 中提取纯 IP "192.168.137.33"
             vicon_ip = VICON_HOST_IP.split(':')[0] 
             
             # 去掉后缀，只保留纯文件名 (如 subject_trial_20260409)
-            file_name_only = self.csv_writer.filename.replace('.csv', '')
+            file_name_only = file_name.replace('.csv', '')
             
             # 严格遵循 Vicon 官方的 XML 格式，且末尾必须加 \0 (Null terminated)
             start_xml = f'<CaptureStart><Name VALUE="{file_name_only}"/></CaptureStart>\0'
@@ -404,7 +463,7 @@ class MainApp:
         if self.record_thread:
             self.record_thread.join()
             
-        # 🚀【终极武器：UDP 遥控 Vicon 停止录制】
+        # UDP 遥控 Vicon 停止录制
         try:
             udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             vicon_ip = VICON_HOST_IP.split(':')[0] 
@@ -421,28 +480,66 @@ class MainApp:
         print("✅ 数据已安全保存。")
 
     def precise_recording_loop(self):
-        # 目标采集间隔 (5ms = 200Hz | 10ms = 100Hz)
-        interval = 0.01 
-        next_time = time.perf_counter()
+        # 设定目标频率 100Hz (0.01s)
+        target_interval = 0.01 
+        start_wall_time = time.time()
+        start_perf_time = time.perf_counter()
+        next_sample_time = start_perf_time
 
+        print(f"🚀 高精度时间锁开启，目标频率: {1/target_interval}Hz")
+        
         while self.is_recording:
-            # 1. 抓取瞬时数据
-            v_frame, v_seg_data, v_marker_data = self.vicon_thread.get_latest_data()
-            i_data = self.imu_thread.get_latest_data()
-            current_timestamp = time.time() # 记录绝对物理时间
+            # 1. 核心自旋锁 (Spin-lock) 确保微秒级定时精度
+            while time.perf_counter() < next_sample_time:
+                # 剩余时间较长时释放 CPU，剩余极短(如 < 1ms)时自旋以保证精度
+                remaining = next_sample_time - time.perf_counter()
+                if remaining > 0.0015:
+                    time.sleep(0.001)
+                else:
+                    pass # 自旋等待（Spinning）
 
-            # 2. 写入数据
-            self.csv_writer.append_row(current_timestamp, v_frame, v_seg_data, v_marker_data, i_data)
+            # 2. 到达采样点，立刻抓取各硬件线程的最新值
+            current_perf = time.perf_counter()
+            current_wall = start_wall_time + (current_perf - start_perf_time)
+            rel_time = current_perf - start_perf_time
 
-            # 3. 高精度对齐 (微秒级等待，补齐 5ms | 10ms)
-            next_time += interval
-            sleep_time = next_time - time.perf_counter()
-            if sleep_time > 0:
-                # 留出 1ms 给系统级 sleep，剩下极小时间用空循环自旋以确保极高精度
-                if sleep_time > 0.001:
-                    time.sleep(sleep_time - 0.001)
-                while time.perf_counter() < next_time:
-                    pass 
+            # 1. 轮询最新 Vicon 帧号
+            v_frame, v_seg, v_marker = self.vicon_thread.get_latest_data()
+            imu_data = self.imu_thread.get_latest_data() 
+                
+            # 3. 构造数据行
+            row = [current_wall, rel_time, v_frame] 
+            # ... 展开 v_seg, v_marker, imu_data 到 row ...
+            for seg in VICON_SEGS:
+                coords = v_seg.get(seg, {"X": 0.0, "Y": 0.0, "Z": 0.0})
+                row.extend([coords['X'], coords['Y'], coords['Z']])
+
+            for marker in VICON_MARKERS:
+                coords = v_marker.get(marker, {"X": 0.0, "Y": 0.0, "Z": 0.0})
+                row.extend([coords['X'], coords['Y'], coords['Z']])            
+
+            for imu in IMU_NAMES:
+                d = imu_data[imu]
+                row.extend([
+                    d["Acc"]["X"], d["Acc"]["Y"], d["Acc"]["Z"],
+                    d["Gyro"]["X"], d["Gyro"]["Y"], d["Gyro"]["Z"],
+                    d["Euler"]["Roll"], d["Euler"]["Pitch"], d["Euler"]["Yaw"],
+                    d["Quat"]["x"], d["Quat"]["y"], d["Quat"]["z"], d["Quat"]["w"]
+                ])
+
+            # 4. 塞入异步队列（极速，不阻塞）
+            self.async_writer.data_queue.put(row)
+                
+            # 更新追踪
+            next_sample_time += target_interval
+            
+            # 5. 极短睡眠 (1ms)，防止 CPU 空转过热，同时保证 1000Hz 的检查频率
+            # 确保即使 Vicon 是 100Hz，我们也能在 1ms 内捕捉到它的更新
+            # time.sleep(0.001)
+
+        print("⏹ 记录停止。")
+        if self.async_writer:
+            self.async_writer.stop()
 
     def on_close(self):
         print("🛑 正在关闭所有硬件连接...")
