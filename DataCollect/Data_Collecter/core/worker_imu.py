@@ -1,12 +1,10 @@
 # 【IMU 进程】高频解析串口，刷新共享内存
 import multiprocessing
+import serial
+import time
+import numpy as np
 
-
-
-IMU_DICT = {
-    0x09: "Trunk",    0x0A: "L_Femur", 0x0B: "L_Tibia", 0x0C: "L_Foot",
-    0x0D: "R_Femur",  0x0E: "R_Tibia", 0x0F: "R_Foot"
-}
+from config import IMU_DICT
 IMU_NAMES = list(IMU_DICT.values())
 
 class IMU_Thread(Thread):

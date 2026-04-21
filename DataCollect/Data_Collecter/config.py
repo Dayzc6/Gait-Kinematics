@@ -1,17 +1,31 @@
 # 静态配置：串口号、IP、采样率、CSV 表头定义
 import time
+import csv
 import vicon_dssdk.ViconDataStream as VDS
 
-PORT = 'COM12'                      # IMU接收串口      
-BAUDRATE = 460800                  
-TIMEOUT = 0.1
-FRAME_HEAD = b'\x55'               
-FRAME_TOTAL_LEN = 29               
+# IMU配置
+IMU_PORT = 'COM12'                      # IMU接收串口      
+IMU_BAUDRATE = 460800                  
+IMU_TIMEOUT = 0.1
+IMU_FRAME_HEAD = b'\x55'               
+IMU_FRAME_TOTAL_LEN = 29               
 
+IMU_DICT = {
+    0x09: "Trunk",    0x0A: "L_Femur", 0x0B: "L_Tibia", 0x0C: "L_Foot",
+    0x0D: "R_Femur",  0x0E: "R_Tibia", 0x0F: "R_Foot"
+}
+IMU_NAMES = list(IMU_DICT.values())
+
+# Planter配置
+PLANTER_SENSOR_POINTS = 18
+PLANTER_BAUD_RATE=115200
+PLANTER_PORT='COM11'
+
+
+# Vicon配置
 VICON_HOST_IP = "192.168.137.157"   # Vicon主机IP
 
-# CSV文件创建与表头
-
+# 获取各个传感器的表头
 def get_vicon_segs():
     
     temp_client=VDS.Client()
@@ -47,7 +61,6 @@ def get_vicon_segs():
     temp_client.Disconnect()
     print("segs: ", segs)
     return segs
-
 VICON_SEGS=get_vicon_segs()
 
 def get_vicon_markers():
@@ -98,11 +111,11 @@ def get_vicon_markers():
     temp_client.Disconnect()
     print("markers: ", markers)
     return markers
-
 VICON_MARKERS=get_vicon_markers()
 
+PLANTER=['Planter_Left','Planter_Right']
 
-
+# 创建csv文件以及表头
 class CSV_Writer:
     def __init__(self, vicon_segs, vicon_markers, imu_names):    
         current_time = time.strftime("%Y%m%d_%H%M%S")
@@ -124,7 +137,7 @@ class CSV_Writer:
         with open(self.filename, mode='w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(self.headers)
-        print(f'✅ CSV 文件已创建: {self.filename}')
+        print(f'✅CSV 文件已创建: {self.filename}')
 
     def append_row(self, current_time, vicon_frame, vicon_seg_data, vicon_marker_data, imu_data):
         row_data = [current_time, vicon_frame]
@@ -149,3 +162,6 @@ class CSV_Writer:
         with open(self.filename, mode='a', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(row_data)
+
+if __name__=="__main__":
+    CSV_Writer.__init__()
