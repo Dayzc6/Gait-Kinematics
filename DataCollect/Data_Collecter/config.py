@@ -21,7 +21,6 @@ PLANTER_SENSOR_POINTS = 18
 PLANTER_BAUD_RATE=115200
 PLANTER_PORT='COM11'
 
-
 # Vicon配置
 VICON_HOST_IP = "192.168.137.157"   # Vicon主机IP
 
@@ -133,6 +132,12 @@ class CSV_Writer:
             self.headers.extend([f"IMU_{name}_Gyro_X", f"IMU_{name}_Gyro_Y", f"IMU_{name}_Gyro_Z"])
             self.headers.extend([f"IMU_{name}_Roll", f"IMU_{name}_Pitch", f"IMU_{name}_Yaw"])
             self.headers.extend([f"IMU_{name}_Quat_x", f"IMU_{name}_Quat_y", f"IMU_{name}_Quat_z", f"IMU_{name}_Quat_w"])
+
+
+        # planter的数据结构
+        for planter in PLANTER:
+            self.headers.extend([f"Planter_{planter}_Acc_X", f"Planter_{planter}_Acc_Y", f"Planter_{planter}_Acc_Z"])
+
 
         with open(self.filename, mode='w', newline='') as f:
             writer = csv.writer(f)
