@@ -81,3 +81,24 @@ def get_foot_side(foot_id):
         str: "Left" 或 "Right"
     """
     return "Left" if foot_id == LEFT_FOOT_ID else "Right"
+
+
+# ==================== 测试代码 ====================
+if __name__ == '__main__':
+    print("[TEST] Planter协议解析测试")
+    
+    # 构造测试帧（左脚）
+    test_frame_left = bytes([0xAA, 0x01] + [i for i in range(36)])
+    result = parse_planter_frame(test_frame_left)
+    if result:
+        side, values = result
+        print(f"[TEST] 左脚: side={side}, values[:5]={values[:5]}")
+    
+    # 构造测试帧（右脚）
+    test_frame_right = bytes([0xAA, 0x02] + [i for i in range(36)])
+    result = parse_planter_frame(test_frame_right)
+    if result:
+        side, values = result
+        print(f"[TEST] 右脚: side={side}, values[:5]={values[:5]}")
+    
+    print("[TEST] 测试完成")

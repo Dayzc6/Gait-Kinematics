@@ -118,3 +118,37 @@ def parse_imu_frame(frame):
     }
 
     return dev_id, imu_data
+
+
+# ==================== 测试代码 ====================
+if __name__ == '__main__':
+    print("[TEST] IMU协议解析��试")
+    
+    # 构造一个测试帧
+    test_frame = bytes([
+        0x09, 0x55, 0x61,  # device_id, head, flag
+        0x00, 0x00,        # ax (小端)
+        0x00, 0x00,        # ay
+        0x00, 0x80,        # az (1g向下)
+        0x00, 0x00,        # gx
+        0x00, 0x00,        # gy
+        0x00, 0x00,        # gz
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # reserved
+        0x00, 0x00,        # r
+        0x00, 0x00,        # p
+        0x00, 0x00,        # y
+        0x00, 0x00         # checksum
+    ])
+    
+    result = parse_imu_frame(test_frame)
+    if result:
+        dev_id, data = result
+        print(f"[TEST] 设备ID: {dev_id:02X}")
+        print(f"[TEST] 加速度: {data['Acc']}")
+        print(f"[TEST] 角速度: {data['Gyro']}")
+        print(f"[TEST] 欧拉角: Roll={data['Euler']['Roll']}, Pitch={data['Euler']['Pitch']}, Yaw={data['Euler']['Yaw']}")
+        print(f"[TEST] 四元数: {data['Quat']}")
+    else:
+        print("[TEST] 解析失败")
+    
+    print("[TEST] 测试完成")

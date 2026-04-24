@@ -157,3 +157,10 @@ class SyncMaster:
             "dup_count": self.dup_count,
             "dup_rate": round(dup_rate, 2)
         }
+
+
+# ==================== 测试代码 ====================
+if __name__ == '__main__':
+    print("[TEST] SyncMaster单元测试")
+    print("[TEST] 需要硬件设备才能运行实际测试")
+    print("[TEST] 测试完成")

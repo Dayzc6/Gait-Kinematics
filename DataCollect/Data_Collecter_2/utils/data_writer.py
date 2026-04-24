@@ -133,3 +133,40 @@ class CSVWriter:
     def get_filename(self):
         """获取当前文件名"""
         return self.filename
+
+
+# ==================== 测试代码 ====================
+if __name__ == '__main__':
+    print("[TEST] CSVWriter单元测试")
+    
+    # 创建写入器
+    writer = CSVWriter()
+    
+    # 模拟数据
+    import random
+    timestamp = time.time()
+    vicon_frame = 100
+    is_dup = 0
+    
+    vicon_seg = {"Root": {"X": 100.0, "Y": 200.0, "Z": 300.0}}
+    vicon_marker = {}
+    
+    imu_data = {
+        "Trunk": {
+            "Acc": {"X": 0.0, "Y": 0.0, "Z": 9.8},
+            "Gyro": {"X": 0.0, "Y": 0.0, "Z": 0.0},
+            "Euler": {"Roll": 0.0, "Pitch": 0.0, "Yaw": 0.0},
+            "Quat": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0}
+        }
+    }
+    
+    planter_data = {
+        "Left": [random.randint(0, 1000) for _ in range(18)],
+        "Right": [random.randint(0, 1000) for _ in range(18)]
+    }
+    
+    # 写入测试
+    writer.append_row(timestamp, vicon_frame, is_dup, vicon_seg, vicon_marker, imu_data, planter_data)
+    
+    print(f"[TEST] 写入完成: {writer.get_filename()}")
+    print("[TEST] 测试完成")
