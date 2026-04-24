@@ -12,8 +12,12 @@ import time
 from datetime import datetime
 from threading import Thread
 
-import config
-from utils.csv_schema import synced_record_to_row, imu_raw_packet_to_rows, planter_raw_packet_to_rows
+try:
+    from DataCollect.Data_Collecter_2 import config
+    from DataCollect.Data_Collecter_2.utils.csv_schema import synced_record_to_row, imu_raw_packet_to_rows, planter_raw_packet_to_rows
+except ImportError:
+    import config
+    from utils.csv_schema import synced_record_to_row, imu_raw_packet_to_rows, planter_raw_packet_to_rows
 
 
 class WriterWorker(Thread):

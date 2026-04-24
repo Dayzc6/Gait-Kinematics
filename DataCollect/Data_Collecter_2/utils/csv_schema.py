@@ -2,7 +2,10 @@
 """
 CSV schema 与行展开工具
 """
-import config
+try:
+    from DataCollect.Data_Collecter_2 import config
+except ImportError:
+    import config
 
 
 def synced_record_to_row(record):

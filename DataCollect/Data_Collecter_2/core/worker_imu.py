@@ -1,33 +1,43 @@
 # -*- coding: utf-8 -*-
 """
-IMU 接收线程
-保留原有串口接收与解析逻辑，同时增加：
-1. latest 数据
-2. 带时间戳的环形缓冲区
-3. 原始流写队列
+IMU数据接收线程模块
+功能：持续从串口读取IMU数据帧，解析并更新共享数据，同时保留原始包缓冲供同步线程匹配。
 """
+import os
+import sys
 import time
-import serial
+import copy
 from collections import deque
 from threading import Thread, Lock
 
-import config
-from utils.protocol_imu import parse_imu_frame
-from utils.data_models import IMUPacket
+import serial
+
+try:
+    from DataCollect.Data_Collecter_2 import config
+    from DataCollect.Data_Collecter_2.utils.protocol_imu import parse_imu_frame
+    from DataCollect.Data_Collecter_2.utils.data_models import IMUPacket
+except ImportError:
+    import config
+    from utils.protocol_imu import parse_imu_frame
+    from utils.data_models import IMUPacket
 
 
 class IMUWorker(Thread):
     def __init__(self, port, baudrate, timeout=0.1, raw_queue=None):
         super().__init__()
         self.daemon = True
+
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
         self.raw_queue = raw_queue
 
-        self.is_running = True
+        self.is_running = False
         self.ser = None
+        self.available = False
+
         self.data_lock = Lock()
+        self.buffer_lock = Lock()
         self.imu_data = {
             name: {
                 "Acc": {"X": 0.0, "Y": 0.0, "Z": 0.0},
@@ -36,35 +46,36 @@ class IMUWorker(Thread):
                 "Quat": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0}
             } for name in config.IMU_NAMES
         }
-        self.latest_packet = None
-        self.packet_buffer = deque(maxlen=config.IMU_BUFFER_SIZE)
+        self.packet_buffer = deque(maxlen=config.IMU_BUFFER_MAXLEN)
 
     def get_latest_data(self):
         with self.data_lock:
-            import copy
             return copy.deepcopy(self.imu_data)
 
-    def get_latest_packet(self):
-        with self.data_lock:
-            return self.latest_packet
-
     def get_buffer_snapshot(self):
-        with self.data_lock:
+        with self.buffer_lock:
             return list(self.packet_buffer)
 
     def is_connected(self):
-        return self.ser is not None and self.ser.is_open
+        return self.available and self.ser is not None and self.ser.is_open
 
     def run(self):
         try:
             self.ser = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
-            self.ser.set_buffer_size(rx_size=10240)
-            print(f'[IMUWorker] 串口已打开: {self.port}')
+            try:
+                self.ser.set_buffer_size(rx_size=10240)
+            except Exception:
+                pass
+            self.available = True
+            print(f"[IMUWorker] 串口已打开: {self.port} @ {self.baudrate}")
         except Exception as e:
-            print(f'[IMUWorker] 串口打开失败: {e}')
+            self.available = False
+            print(f"[IMUWorker] 串口打开失败，将以空数据模式运行: {e}")
             return
 
+        self.is_running = True
         raw_buffer = b""
+
         try:
             while self.is_running:
                 if self.ser.in_waiting > 0:
@@ -73,42 +84,58 @@ class IMUWorker(Thread):
                         raw_buffer = raw_buffer[-1000:]
 
                     while True:
-                        head_idx = raw_buffer.find(config.IMU_FRAME_HEAD)
+                        head_idx = raw_buffer.find(b'\x55')
                         if head_idx == -1:
                             break
-                        if head_idx > 0:
-                            start_idx = head_idx - 1
-                            end_idx = start_idx + config.IMU_FRAME_TOTAL_LEN
-                            if end_idx <= len(raw_buffer):
-                                frame = raw_buffer[start_idx:end_idx]
-                                if frame[1] == 0x55:
-                                    result = parse_imu_frame(frame)
-                                    if result:
-                                        dev_id, imu_data_dict = result
-                                        imu_name = config.IMU_DICT.get(dev_id)
-                                        if imu_name:
-                                            recv_ts = time.time()
-                                            with self.data_lock:
-                                                self.imu_data[imu_name] = imu_data_dict
-                                                packet_data = {k: v.copy() if isinstance(v, dict) else v for k, v in self.imu_data.items()}
-                                                packet = IMUPacket(recv_timestamp=recv_ts, data=self.get_latest_data())
-                                                self.latest_packet = packet
-                                                self.packet_buffer.append(packet)
-                                            if self.raw_queue is not None:
-                                                try:
-                                                    self.raw_queue.put(packet, timeout=0.01)
-                                                except Exception:
-                                                    pass
-                                raw_buffer = raw_buffer[end_idx:]
-                                continue
-                            else:
-                                break
-                        else:
-                            raw_buffer = raw_buffer[1:]
+
+                        start_idx = max(0, head_idx - 1)
+                        end_idx = start_idx + config.IMU_FRAME_TOTAL_LEN
+                        if end_idx > len(raw_buffer):
+                            break
+
+                        frame = raw_buffer[start_idx:end_idx]
+                        result = parse_imu_frame(frame)
+                        raw_buffer = raw_buffer[end_idx:]
+                        if not result:
+                            continue
+
+                        dev_id, imu_data_dict = result
+                        imu_name = config.IMU_DICT.get(dev_id)
+                        if not imu_name:
+                            continue
+
+                        packet = None
+                        with self.data_lock:
+                            self.imu_data[imu_name] = imu_data_dict
+                            snapshot = copy.deepcopy(self.imu_data)
+                            packet = IMUPacket(recv_timestamp=time.time(), data=snapshot)
+
+                        with self.buffer_lock:
+                            self.packet_buffer.append(packet)
+
+                        if self.raw_queue is not None:
+                            try:
+                                self.raw_queue.put_nowait(packet)
+                            except Exception:
+                                pass
+
                 time.sleep(0.001)
+        except Exception as e:
+            print(f"[IMUWorker] 接收异常: {e}")
         finally:
-            if self.ser and self.ser.is_open:
-                self.ser.close()
+            self.stop()
 
     def stop(self):
         self.is_running = False
+        if self.ser and self.ser.is_open:
+            try:
+                self.ser.close()
+            except Exception:
+                pass
+        print("[IMUWorker] 线程已停止")
+
+
+if __name__ == '__main__':
+    print("[TEST] IMUWorker单元测试")
+    print("[TEST] 无串口设备，跳过实际测试")
+    print("[TEST] 测试完成")

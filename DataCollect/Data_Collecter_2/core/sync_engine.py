@@ -10,8 +10,12 @@ import queue
 import time
 from threading import Thread
 
-import config
-from utils.data_models import SyncedRecord
+try:
+    from DataCollect.Data_Collecter_2 import config
+    from DataCollect.Data_Collecter_2.utils.data_models import SyncedRecord
+except ImportError:
+    import config
+    from utils.data_models import SyncedRecord
 
 
 class SyncEngine(Thread):
