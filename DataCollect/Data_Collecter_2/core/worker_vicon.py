@@ -1,16 +1,24 @@
 # -*- coding: utf-8 -*-
 """
 Vicon 数据接收线程
-- 持续拉取新帧
-- 将每帧封装为 ViconFrame 推入队列，供 SyncEngine 逐帧消费
-- 保留最新帧快照，便于状态显示与调试
+目标：尽量贴近 experiments 中已验证成功的接收方式
+- 每次 GetFrame 成功即视作一帧
+- 逐帧封装为 ViconFrame 放入队列
+- 同时保留最新快照供状态查看
 """
 import copy
+import os
+import sys
 import time
 from queue import Full
 from threading import Thread, Lock
 
 import vicon_dssdk.ViconDataStream as VDS
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 try:
     from DataCollect.Data_Collecter_2 import config
@@ -26,21 +34,22 @@ class ViconWorker(Thread):
         self.daemon = True
 
         self.host_ip = host_ip
-        self.seg_ids = seg_ids
-        self.marker_ids = marker_ids
+        self.seg_ids = list(seg_ids)
+        self.marker_ids = list(marker_ids)
         self.output_queue = output_queue
-
-        self.data_lock = Lock()
-        self.seg_data = {seg: {"X": 0.0, "Y": 0.0, "Z": 0.0} for seg in self.seg_ids}
-        self.marker_data = {marker: {"X": 0.0, "Y": 0.0, "Z": 0.0} for marker in self.marker_ids}
-        self.occluded_segs = {seg: False for seg in self.seg_ids}
-        self.current_frame_num = 0
-        self.subject_name = None
-        self.process_rate = None
 
         self.client = None
         self.is_running = False
-        self.available = False
+        self._connected = False
+
+        self.data_lock = Lock()
+        self.current_frame_num = 0
+        self.subject_name = None
+        self.process_rate = None
+        self.seg_data = {seg: {"X": 0.0, "Y": 0.0, "Z": 0.0} for seg in self.seg_ids}
+        self.marker_data = {marker: {"X": 0.0, "Y": 0.0, "Z": 0.0} for marker in self.marker_ids}
+        self.occluded_segs = {seg: False for seg in self.seg_ids}
+        self.last_error = None
 
     def connect(self):
         try:
@@ -54,20 +63,29 @@ class ViconWorker(Thread):
             print("[ViconWorker] Vicon连接成功!")
             self.client.EnableSegmentData()
             self.client.EnableMarkerData()
+
             try:
                 self.client.SetStreamMode(config.VICON_STREAM_MODE)
             except Exception as e:
-                print(f"[ViconWorker] 设置StreamMode警告: {e}")
+                print(f"[ViconWorker] 设置Pull模式警告: {e}")
 
-            self.available = True
+            self._connected = True
             return True
         except Exception as e:
+            self.last_error = e
             print(f"[ViconWorker] 连接异常: {e}")
-            self.available = False
             return False
 
     def is_connected(self):
-        return self.available and self.client is not None and self.client.IsConnected()
+        return self._connected and self.client is not None and self.client.IsConnected()
+
+    def _get_subject_name(self):
+        if self.subject_name:
+            return self.subject_name
+        subjects = self.client.GetSubjectNames()
+        if subjects:
+            self.subject_name = subjects[0]
+        return self.subject_name
 
     def get_latest_frame(self):
         with self.data_lock:
@@ -80,24 +98,16 @@ class ViconWorker(Thread):
                 'occluded_segs': copy.deepcopy(self.occluded_segs),
             }
 
-    def _ensure_subject_name(self):
-        if self.subject_name:
-            return self.subject_name
-        subjects = self.client.GetSubjectNames()
-        if subjects:
-            self.subject_name = subjects[0]
-        return self.subject_name
-
-    def _capture_frame(self):
+    def _capture_one_frame(self):
         if not self.client.GetFrame():
             return None
 
-        subject_name = self._ensure_subject_name()
+        recv_ts = time.time()
+        frame_num = self.client.GetFrameNumber()
+        subject_name = self._get_subject_name()
         if not subject_name:
             return None
 
-        frame_num = self.client.GetFrameNumber()
-        recv_timestamp = time.time()
         try:
             self.process_rate = self.client.GetFrameRate()
         except Exception:
@@ -137,7 +147,7 @@ class ViconWorker(Thread):
 
         return ViconFrame(
             frame_num=frame_num,
-            recv_timestamp=recv_timestamp,
+            recv_timestamp=recv_ts,
             subject_name=subject_name,
             seg_data=copy.deepcopy(temp_seg_data),
             marker_data=copy.deepcopy(temp_marker_data),
@@ -153,7 +163,7 @@ class ViconWorker(Thread):
         print("[ViconWorker] 接收线程启动")
         try:
             while self.is_running:
-                frame = self._capture_frame()
+                frame = self._capture_one_frame()
                 if frame is None:
                     continue
 
@@ -163,6 +173,7 @@ class ViconWorker(Thread):
                     except Full:
                         print("[ViconWorker] Vicon队列已满，丢弃当前帧")
         except Exception as e:
+            self.last_error = e
             print(f"[ViconWorker] 运行异常: {e}")
         finally:
             self.stop()

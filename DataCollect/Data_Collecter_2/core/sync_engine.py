@@ -6,9 +6,16 @@
 - 从 IMU / Planter buffer 中匹配最近且不晚于 Vicon 时间的包
 - 将同步结果送入写队列
 """
+import os
 import queue
+import sys
 import time
 from threading import Thread
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 try:
     from DataCollect.Data_Collecter_2 import config
@@ -36,8 +43,8 @@ class SyncEngine(Thread):
 
     def get_statistics(self):
         return {
-            "frame_count": self.synced_count,
-            "gap_count": self.gap_count,
+            'frame_count': self.synced_count,
+            'gap_count': self.gap_count,
         }
 
     @staticmethod
@@ -52,14 +59,14 @@ class SyncEngine(Thread):
 
     def run(self):
         self.is_running = True
-        print("[SyncEngine] 同步线程启动")
+        print('[SyncEngine] 同步线程启动')
         while self.is_running:
             try:
                 vicon_frame = self.vicon_queue.get(timeout=config.SYNC_QUEUE_TIMEOUT)
             except queue.Empty:
                 continue
             except Exception as e:
-                print(f"[SyncEngine] Vicon队列异常: {e}")
+                print(f'[SyncEngine] Vicon队列异常: {e}')
                 continue
 
             try:
@@ -85,8 +92,8 @@ class SyncEngine(Thread):
 
                 imu_data = imu_packet.data if imu_packet else self.imu_worker.get_latest_data()
                 planter_data = {
-                    "Left": planter_packet.left,
-                    "Right": planter_packet.right
+                    'Left': planter_packet.left,
+                    'Right': planter_packet.right,
                 } if planter_packet else self.planter_worker.get_latest_data()
 
                 record = SyncedRecord(
@@ -109,8 +116,7 @@ class SyncEngine(Thread):
 
                 self.write_queue.put(record, timeout=0.2)
                 self.synced_count += 1
-
             except Exception as e:
-                print(f"[SyncEngine] 同步异常: {e}")
+                print(f'[SyncEngine] 同步异常: {e}')
 
-        print("[SyncEngine] 同步线程已停止")
+        print('[SyncEngine] 同步线程已停止')

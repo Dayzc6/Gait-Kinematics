@@ -2,6 +2,14 @@
 """
 CSV schema 与行展开工具
 """
+import os
+import sys
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 try:
     from DataCollect.Data_Collecter_2 import config
 except ImportError:
@@ -24,25 +32,25 @@ def synced_record_to_row(record):
     ]
 
     for seg in config.VICON_SEGS:
-        coords = record.vicon_seg_data.get(seg, {"X": 0.0, "Y": 0.0, "Z": 0.0})
+        coords = record.vicon_seg_data.get(seg, {'X': 0.0, 'Y': 0.0, 'Z': 0.0})
         row.extend([coords['X'], coords['Y'], coords['Z']])
 
     for marker in config.VICON_MARKERS:
-        coords = record.vicon_marker_data.get(marker, {"X": 0.0, "Y": 0.0, "Z": 0.0})
+        coords = record.vicon_marker_data.get(marker, {'X': 0.0, 'Y': 0.0, 'Z': 0.0})
         row.extend([coords['X'], coords['Y'], coords['Z']])
 
     for imu_name in config.IMU_NAMES:
         d = record.imu_data.get(imu_name, {
-            "Acc": {"X": 0.0, "Y": 0.0, "Z": 0.0},
-            "Gyro": {"X": 0.0, "Y": 0.0, "Z": 0.0},
-            "Euler": {"Roll": 0.0, "Pitch": 0.0, "Yaw": 0.0},
-            "Quat": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0}
+            'Acc': {'X': 0.0, 'Y': 0.0, 'Z': 0.0},
+            'Gyro': {'X': 0.0, 'Y': 0.0, 'Z': 0.0},
+            'Euler': {'Roll': 0.0, 'Pitch': 0.0, 'Yaw': 0.0},
+            'Quat': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0},
         })
         row.extend([
             d['Acc']['X'], d['Acc']['Y'], d['Acc']['Z'],
             d['Gyro']['X'], d['Gyro']['Y'], d['Gyro']['Z'],
             d['Euler']['Roll'], d['Euler']['Pitch'], d['Euler']['Yaw'],
-            d['Quat']['x'], d['Quat']['y'], d['Quat']['z'], d['Quat']['w']
+            d['Quat']['x'], d['Quat']['y'], d['Quat']['z'], d['Quat']['w'],
         ])
 
     left = record.planter_data.get('Left', [0] * config.PLANTER_SENSOR_POINTS)
@@ -64,7 +72,7 @@ def imu_raw_packet_to_rows(packet):
             d['Acc']['X'], d['Acc']['Y'], d['Acc']['Z'],
             d['Gyro']['X'], d['Gyro']['Y'], d['Gyro']['Z'],
             d['Euler']['Roll'], d['Euler']['Pitch'], d['Euler']['Yaw'],
-            d['Quat']['x'], d['Quat']['y'], d['Quat']['z'], d['Quat']['w']
+            d['Quat']['x'], d['Quat']['y'], d['Quat']['z'], d['Quat']['w'],
         ])
     return rows
 

@@ -1,16 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-IMU数据接收线程模块
-功能：持续从串口读取IMU数据帧，解析并更新共享数据，同时保留原始包缓冲供同步线程匹配。
+IMU 数据接收线程
+- 保留最新 IMU 数据
+- 同时把时间戳化快照放入 buffer，供 SyncEngine 按 Vicon 时间匹配
+- 可选写入 raw_queue
 """
+import copy
 import os
 import sys
 import time
-import copy
 from collections import deque
 from threading import Thread, Lock
 
 import serial
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 try:
     from DataCollect.Data_Collecter_2 import config
@@ -88,14 +95,14 @@ class IMUWorker(Thread):
                         if head_idx == -1:
                             break
 
-                        start_idx = max(0, head_idx - 1)
+                        start_idx = head_idx - 1 if head_idx > 0 else 0
                         end_idx = start_idx + config.IMU_FRAME_TOTAL_LEN
                         if end_idx > len(raw_buffer):
                             break
 
                         frame = raw_buffer[start_idx:end_idx]
-                        result = parse_imu_frame(frame)
                         raw_buffer = raw_buffer[end_idx:]
+                        result = parse_imu_frame(frame)
                         if not result:
                             continue
 
@@ -104,12 +111,11 @@ class IMUWorker(Thread):
                         if not imu_name:
                             continue
 
-                        packet = None
                         with self.data_lock:
                             self.imu_data[imu_name] = imu_data_dict
                             snapshot = copy.deepcopy(self.imu_data)
-                            packet = IMUPacket(recv_timestamp=time.time(), data=snapshot)
 
+                        packet = IMUPacket(recv_timestamp=time.time(), data=snapshot)
                         with self.buffer_lock:
                             self.packet_buffer.append(packet)
 

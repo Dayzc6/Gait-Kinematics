@@ -8,13 +8,23 @@
 import csv
 import os
 import queue
+import sys
 import time
 from datetime import datetime
 from threading import Thread
 
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(CURRENT_DIR)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 try:
     from DataCollect.Data_Collecter_2 import config
-    from DataCollect.Data_Collecter_2.utils.csv_schema import synced_record_to_row, imu_raw_packet_to_rows, planter_raw_packet_to_rows
+    from DataCollect.Data_Collecter_2.utils.csv_schema import (
+        synced_record_to_row,
+        imu_raw_packet_to_rows,
+        planter_raw_packet_to_rows,
+    )
 except ImportError:
     import config
     from utils.csv_schema import synced_record_to_row, imu_raw_packet_to_rows, planter_raw_packet_to_rows
@@ -30,10 +40,10 @@ class WriterWorker(Thread):
         self.output_dir = output_dir or config.DATA_DIR
         os.makedirs(self.output_dir, exist_ok=True)
 
-        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.synced_filename = os.path.join(self.output_dir, f"subject_trial_{timestamp_str}_synced.csv")
-        self.imu_raw_filename = os.path.join(self.output_dir, f"subject_trial_{timestamp_str}_imu_raw.csv")
-        self.planter_raw_filename = os.path.join(self.output_dir, f"subject_trial_{timestamp_str}_planter_raw.csv")
+        timestamp_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+        self.synced_filename = os.path.join(self.output_dir, f'subject_trial_{timestamp_str}_synced.csv')
+        self.imu_raw_filename = os.path.join(self.output_dir, f'subject_trial_{timestamp_str}_imu_raw.csv')
+        self.planter_raw_filename = os.path.join(self.output_dir, f'subject_trial_{timestamp_str}_planter_raw.csv')
 
         self.is_running = False
         self._init_files()
@@ -45,7 +55,7 @@ class WriterWorker(Thread):
             csv.writer(f).writerow(config.generate_imu_raw_headers())
         with open(self.planter_raw_filename, 'w', newline='', encoding='utf-8') as f:
             csv.writer(f).writerow(config.generate_planter_raw_headers())
-        print(f"[WriterWorker] 已创建文件: {self.synced_filename}")
+        print(f'[WriterWorker] 已创建文件: {self.synced_filename}')
 
     def run(self):
         self.is_running = True
@@ -54,7 +64,7 @@ class WriterWorker(Thread):
         planter_batch = []
         last_flush = time.time()
 
-        print("[WriterWorker] 写盘线程启动")
+        print('[WriterWorker] 写盘线程启动')
         while self.is_running or not self._all_queues_empty():
             self._drain_queue(self.synced_queue, synced_batch, kind='synced')
             self._drain_queue(self.imu_raw_queue, imu_batch, kind='imu')
@@ -76,7 +86,7 @@ class WriterWorker(Thread):
             time.sleep(0.01)
 
         self._flush_batches(synced_batch, imu_batch, planter_batch)
-        print("[WriterWorker] 写盘线程已停止")
+        print('[WriterWorker] 写盘线程已停止')
 
     def _drain_queue(self, q, batch, kind='synced'):
         while True:
@@ -91,7 +101,7 @@ class WriterWorker(Thread):
             except queue.Empty:
                 break
             except Exception as e:
-                print(f"[WriterWorker] 读取队列异常({kind}): {e}")
+                print(f'[WriterWorker] 读取队列异常({kind}): {e}')
                 break
 
     def _flush_batches(self, synced_batch, imu_batch, planter_batch):

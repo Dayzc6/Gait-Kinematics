@@ -1,23 +1,30 @@
 # -*- coding: utf-8 -*-
 """
 全局配置模块 - DataCollecter_2
-包含 Vicon、IMU、Planter 的配置参数，以及新架构所需的 CSV 表头与队列配置。
+面向正式采集新架构：
+- ViconWorker 逐帧入队
+- SyncEngine 逐帧消费
+- WriterWorker 批量写盘
+并保留 experiments 中已验证成功的 Vicon 接收方式所需配置。
 """
 import os
 import sys
 import time
 
-# 添加项目根目录到路径，以便导入Vicon SDK
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 保证既支持模块方式启动，也支持直接脚本导入
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 # ==================== 目录配置 ====================
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+MODULE_ROOT = CURRENT_DIR
+DATA_DIR = os.path.join(MODULE_ROOT, "data")
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
 # ==================== IMU 配置 ====================
-IMU_PORT = 'COM12'
+IMU_PORT = 'COM9'
 IMU_BAUDRATE = 460800
 IMU_TIMEOUT = 0.1
 IMU_FRAME_HEAD = b'\x55'
@@ -36,7 +43,8 @@ IMU_DICT = {
 IMU_NAMES = list(IMU_DICT.values())
 
 # ==================== Planter 配置 ====================
-PLANTER_PORT = 'COM11'
+PLANTER_LEFT_PORT = 'COM10'
+PLANTER_RIGHT_PORT = 'COM13'
 PLANTER_BAUD_RATE = 115200
 PLANTER_TIMEOUT = 2
 PLANTER_SENSOR_POINTS = 18
@@ -45,9 +53,8 @@ PLANTER_FRAME_LENGTH_CANDIDATES = (39, 38)
 PLANTER_BUFFER_MAXLEN = 512
 
 # ==================== Vicon 配置 ====================
-VICON_HOST_IP = "192.168.10.1"
-VICON_STREAM_MODE = 0
-VICON_BUFFERED_PULL_WAIT = 0.0
+VICON_HOST_IP = "192.168.137.157"
+VICON_STREAM_MODE = 0  # 与 experiments/common.py 中的 SetStreamMode(0) 保持一致
 
 # ==================== 队列/写盘配置 ====================
 VICON_QUEUE_MAXSIZE = 4096
@@ -57,21 +64,16 @@ SYNC_QUEUE_TIMEOUT = 0.2
 WRITER_BATCH_SIZE = 128
 WRITER_FLUSH_INTERVAL = 0.5
 
-# ==================== 匹配阈值配置 ====================
-IMU_STALE_THRESHOLD_MS = 200.0
-PLANTER_STALE_THRESHOLD_MS = 200.0
-
-# ==================== 旧架构兼容配置 ====================
+# 兼容旧字段，尽量减少外部引用报错
 RECORDING_INTERVAL = 0.001
 
 
-# ==================== Vicon动态获取函数 ====================
+# ==================== Vicon 动态获取函数 ====================
 def get_vicon_segs():
-    """连接 Vicon 并获取 Subject 的 Segment 列表。"""
     try:
         import vicon_dssdk.ViconDataStream as VDS
     except ImportError:
-        print("[ERROR] 无法导入Vicon SDK，请确保已安装 vicon-dssdk")
+        print("[ERROR] 无法导入Vicon SDK，请确保已安装vicon-dssdk")
         return []
 
     temp_client = VDS.Client()
@@ -103,14 +105,16 @@ def get_vicon_segs():
                     break
             time.sleep(0.1)
     finally:
-        temp_client.Disconnect()
+        try:
+            temp_client.Disconnect()
+        except Exception:
+            pass
 
     print(f"[INFO] 获取到Segments: {segs}")
     return segs
 
 
 def get_vicon_markers():
-    """连接 Vicon 并获取 Subject 的 Marker 列表。"""
     try:
         import vicon_dssdk.ViconDataStream as VDS
     except ImportError:
@@ -118,28 +122,28 @@ def get_vicon_markers():
         return []
 
     temp_client = VDS.Client()
-    temp_client.Connect(VICON_HOST_IP)
-    temp_client.EnableMarkerData()
-
     try:
-        temp_client.SetStreamMode(VICON_STREAM_MODE)
-    except Exception:
-        pass
+        temp_client.Connect(VICON_HOST_IP)
+        temp_client.EnableMarkerData()
+        try:
+            temp_client.SetStreamMode(VICON_STREAM_MODE)
+        except Exception:
+            pass
 
-    markers = []
-    try:
+        markers = []
         for _ in range(10):
             if temp_client.GetFrame():
                 subjects = temp_client.GetSubjectNames()
                 if subjects:
                     s_name = subjects[0]
                     raw_markers = temp_client.GetMarkerNames(s_name)
-                    temp_markers = []
+
                     if isinstance(raw_markers, tuple) and len(raw_markers) == 2:
                         raw_list = raw_markers[1]
                     else:
                         raw_list = raw_markers
 
+                    temp_markers = []
                     for m in raw_list:
                         if isinstance(m, (tuple, list)):
                             temp_markers.append(m[0])
@@ -148,13 +152,17 @@ def get_vicon_markers():
 
                     markers = temp_markers
                     if markers:
-                        break
+                        print(f"[INFO] 获取到Markers: {markers}")
+                        return markers
             time.sleep(0.1)
     finally:
-        temp_client.Disconnect()
+        try:
+            temp_client.Disconnect()
+        except Exception:
+            pass
 
-    print(f"[INFO] 获取到Markers: {markers}")
-    return markers
+    print("[INFO] 获取到Markers: []")
+    return []
 
 
 print("[INFO] 正在初始化Vicon配置...")
@@ -162,7 +170,7 @@ VICON_SEGS = get_vicon_segs()
 VICON_MARKERS = get_vicon_markers()
 
 
-# ==================== CSV表头生成 ====================
+# ==================== CSV 表头生成 ====================
 def generate_synced_headers():
     headers = [
         'Timestamp',
@@ -217,7 +225,7 @@ def generate_planter_raw_headers():
 
 
 def generate_csv_headers():
-    """旧接口兼容：返回新 synced 文件表头。"""
+    """兼容旧接口。"""
     return generate_synced_headers()
 
 
