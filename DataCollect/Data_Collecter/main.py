@@ -19,12 +19,12 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 try:
-    from DataCollect.Data_Collecter_2 import config
-    from DataCollect.Data_Collecter_2.core.worker_vicon import ViconWorker
-    from DataCollect.Data_Collecter_2.core.worker_imu import IMUWorker
-    from DataCollect.Data_Collecter_2.core.worker_planter import PlanterWorker
-    from DataCollect.Data_Collecter_2.core.sync_engine import SyncEngine
-    from DataCollect.Data_Collecter_2.core.writer_worker import WriterWorker
+    from DataCollect.Data_Collecter import config
+    from DataCollect.Data_Collecter.core.worker_vicon import ViconWorker
+    from DataCollect.Data_Collecter.core.worker_imu import IMUWorker
+    from DataCollect.Data_Collecter.core.worker_planter import PlanterWorker
+    from DataCollect.Data_Collecter.core.sync_engine import SyncEngine
+    from DataCollect.Data_Collecter.core.writer_worker import WriterWorker
 except ImportError as e:
     print(f"[ERROR] 导入错误: {e}")
     print("[ERROR] 请确认当前工作目录在项目根目录下，或使用 -m 方式启动")

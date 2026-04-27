@@ -11,7 +11,7 @@ from datetime import datetime
 
 # 导入配置
 try:
-    from DataCollect.Data_Collecter_2 import config
+    from DataCollect.Data_Collecter import config
 except ImportError:
     import config
 

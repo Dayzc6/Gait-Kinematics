@@ -25,9 +25,9 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 try:
-    from DataCollect.Data_Collecter_2 import config
-    from DataCollect.Data_Collecter_2.utils.protocol_planter import parse_planter_frame
-    from DataCollect.Data_Collecter_2.utils.data_models import PlanterPacket
+    from DataCollect.Data_Collecter import config
+    from DataCollect.Data_Collecter.utils.protocol_planter import parse_planter_frame
+    from DataCollect.Data_Collecter.utils.data_models import PlanterPacket
 except ImportError:
     import config
     from utils.protocol_planter import parse_planter_frame
