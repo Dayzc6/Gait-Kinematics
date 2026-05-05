@@ -3,12 +3,8 @@
 Planter（足底压力）双串口接收模块
 - 左右脚各一个独立接收器 / 串口
 - 两个子线程分别读取 Left / Right
-- 聚合器对外暴露统一接口：
-  - start / stop / join
-  - is_connected / get_connection_status
-  - get_latest_data
-  - get_buffer_snapshot
-- 为 SyncEngine 提供统一的 PlanterPacket 缓冲视图
+- 每来一帧即按左右脚独立入缓冲
+- 不再要求左右成对后才对外可见
 """
 import copy
 import os
@@ -27,11 +23,11 @@ if PROJECT_ROOT not in sys.path:
 try:
     from DataCollect.Data_Collecter import config
     from DataCollect.Data_Collecter.utils.protocol_planter import parse_planter_frame
-    from DataCollect.Data_Collecter.utils.data_models import PlanterPacket
+    from DataCollect.Data_Collecter.utils.data_models import PlanterSample
 except ImportError:
     import config
     from utils.protocol_planter import parse_planter_frame
-    from utils.data_models import PlanterPacket
+    from utils.data_models import PlanterSample
 
 
 class SingleFootPlanterWorker(Thread):
@@ -48,9 +44,12 @@ class SingleFootPlanterWorker(Thread):
         self.ser = None
         self.available = False
         self.data_lock = Lock()
+        self.buffer_lock = Lock()
         self.latest_data = [0] * config.PLANTER_SENSOR_POINTS
         self.sensor_initialized = False
         self.last_update_timestamp = None
+        self.packet_buffer = deque(maxlen=config.PLANTER_BUFFER_MAXLEN)
+        self.seq_index = 0
 
     def get_latest_data(self):
         with self.data_lock:
@@ -59,6 +58,10 @@ class SingleFootPlanterWorker(Thread):
     def get_latest_timestamp(self):
         with self.data_lock:
             return self.last_update_timestamp
+
+    def get_buffer_snapshot(self):
+        with self.buffer_lock:
+            return list(self.packet_buffer)
 
     def is_connected(self):
         return self.available and self.ser is not None and self.ser.is_open
@@ -132,9 +135,20 @@ class SingleFootPlanterWorker(Thread):
                         continue
 
                     _, values = result
+                    recv_ts = time.time()
                     with self.data_lock:
                         self.latest_data = values
-                        self.last_update_timestamp = time.time()
+                        self.last_update_timestamp = recv_ts
+
+                    with self.buffer_lock:
+                        self.seq_index += 1
+                        sample = PlanterSample(
+                            side=self.side,
+                            recv_timestamp=recv_ts,
+                            seq_index=self.seq_index,
+                            values=copy.copy(values),
+                        )
+                        self.packet_buffer.append(sample)
 
                 time.sleep(0.002)
         except Exception as e:
@@ -156,57 +170,19 @@ class PlanterWorker:
     def __init__(self, left_port, right_port, baudrate=115200, timeout=2, raw_queue=None):
         self.left_worker = SingleFootPlanterWorker(left_port, 'Left', baudrate, timeout)
         self.right_worker = SingleFootPlanterWorker(right_port, 'Right', baudrate, timeout)
-        self.raw_queue = raw_queue
-        self.buffer_lock = Lock()
-        self.packet_buffer = deque(maxlen=config.PLANTER_BUFFER_MAXLEN)
-        self.is_running = False
-        self.collector_thread = None
+        self.raw_queue = raw_queue  # 保留参数，但正式链路当前不使用 raw 输出
 
     def start(self):
         self.left_worker.start()
         self.right_worker.start()
-        self.is_running = True
-        self.collector_thread = Thread(target=self._collector_loop, daemon=True)
-        self.collector_thread.start()
-
-    def _collector_loop(self):
-        last_emitted_ts = None
-        while self.is_running:
-            left_data = self.left_worker.get_latest_data()
-            right_data = self.right_worker.get_latest_data()
-            left_ts = self.left_worker.get_latest_timestamp()
-            right_ts = self.right_worker.get_latest_timestamp()
-
-            candidate_ts = max(ts for ts in (left_ts, right_ts) if ts is not None) if (left_ts is not None or right_ts is not None) else None
-            if candidate_ts is not None and candidate_ts != last_emitted_ts:
-                packet = PlanterPacket(
-                    recv_timestamp=candidate_ts,
-                    left=copy.copy(left_data),
-                    right=copy.copy(right_data),
-                )
-                with self.buffer_lock:
-                    self.packet_buffer.append(packet)
-                if self.raw_queue is not None:
-                    try:
-                        self.raw_queue.put_nowait(packet)
-                    except Exception:
-                        pass
-                last_emitted_ts = candidate_ts
-
-            time.sleep(0.002)
 
     def stop(self):
-        self.is_running = False
         self.left_worker.stop()
         self.right_worker.stop()
-        if self.collector_thread and self.collector_thread.is_alive():
-            self.collector_thread.join(timeout=2)
 
     def join(self, timeout=None):
         self.left_worker.join(timeout=timeout)
         self.right_worker.join(timeout=timeout)
-        if self.collector_thread:
-            self.collector_thread.join(timeout=timeout)
 
     def is_connected(self):
         return self.left_worker.is_connected() and self.right_worker.is_connected()
@@ -223,9 +199,24 @@ class PlanterWorker:
             'Right': self.right_worker.get_latest_data(),
         }
 
-    def get_buffer_snapshot(self):
-        with self.buffer_lock:
-            return list(self.packet_buffer)
+    def get_latest_timestamp_by_side(self):
+        return {
+            'Left': self.left_worker.get_latest_timestamp(),
+            'Right': self.right_worker.get_latest_timestamp(),
+        }
+
+    def get_buffer_snapshot(self, side):
+        if side == 'Left':
+            return self.left_worker.get_buffer_snapshot()
+        if side == 'Right':
+            return self.right_worker.get_buffer_snapshot()
+        return []
+
+    def get_all_buffer_snapshots(self):
+        return {
+            'Left': self.left_worker.get_buffer_snapshot(),
+            'Right': self.right_worker.get_buffer_snapshot(),
+        }
 
 
 if __name__ == '__main__':

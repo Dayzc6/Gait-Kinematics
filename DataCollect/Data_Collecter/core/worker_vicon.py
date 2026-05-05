@@ -5,6 +5,7 @@ Vicon 数据接收线程
 - 每次 GetFrame 成功即视作一帧
 - 逐帧封装为 ViconFrame 放入队列
 - 同时保留最新快照供状态查看
+- 当前正式链路默认关闭 segment 接收，但保留相关代码以便后续恢复
 """
 import copy
 import os
@@ -21,8 +22,8 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 try:
-    from DataCollect.Data_Collecter_2 import config
-    from DataCollect.Data_Collecter_2.utils.data_models import ViconFrame
+    from DataCollect.Data_Collecter import config
+    from DataCollect.Data_Collecter.utils.data_models import ViconFrame
 except ImportError:
     import config
     from utils.data_models import ViconFrame
@@ -46,10 +47,12 @@ class ViconWorker(Thread):
         self.current_frame_num = 0
         self.subject_name = None
         self.process_rate = None
+        self.frame_rates = None
         self.seg_data = {seg: {"X": 0.0, "Y": 0.0, "Z": 0.0} for seg in self.seg_ids}
         self.marker_data = {marker: {"X": 0.0, "Y": 0.0, "Z": 0.0} for marker in self.marker_ids}
         self.occluded_segs = {seg: False for seg in self.seg_ids}
         self.last_error = None
+        self.last_rate_log_ts = 0.0
 
     def connect(self):
         try:
@@ -61,7 +64,9 @@ class ViconWorker(Thread):
                 return False
 
             print("[ViconWorker] Vicon连接成功!")
-            self.client.EnableSegmentData()
+            # 保留 segment 数据流启用逻辑，后续如需恢复 segment 接收可直接打开 VICON_ENABLE_SEGMENTS
+            if config.VICON_ENABLE_SEGMENTS:
+                self.client.EnableSegmentData()
             self.client.EnableMarkerData()
 
             try:
@@ -87,12 +92,25 @@ class ViconWorker(Thread):
             self.subject_name = subjects[0]
         return self.subject_name
 
+    def _maybe_log_rates(self):
+        now = time.time()
+        if (now - self.last_rate_log_ts) < config.VICON_RATE_PRINT_INTERVAL:
+            return
+
+        rate_msg = {
+            'frame_rate': self.process_rate,
+            'frame_rates': self.frame_rates,
+        }
+        print(f"[ViconWorker] 当前速率: {rate_msg}")
+        self.last_rate_log_ts = now
+
     def get_latest_frame(self):
         with self.data_lock:
             return {
                 'frame_num': self.current_frame_num,
                 'subject_name': self.subject_name,
                 'process_rate': self.process_rate,
+                'frame_rates': copy.deepcopy(self.frame_rates),
                 'seg_data': copy.deepcopy(self.seg_data),
                 'marker_data': copy.deepcopy(self.marker_data),
                 'occluded_segs': copy.deepcopy(self.occluded_segs),
@@ -113,22 +131,35 @@ class ViconWorker(Thread):
         except Exception:
             pass
 
-        temp_seg_data = {}
-        temp_marker_data = {}
-        temp_occluded = {}
+        try:
+            self.frame_rates = self.client.GetFrameRates()
+        except Exception:
+            self.frame_rates = None
 
-        for seg in self.seg_ids:
-            try:
-                pos, occluded = self.client.GetSegmentGlobalTranslation(subject_name, seg)
-                temp_occluded[seg] = bool(occluded)
-                if not occluded:
-                    temp_seg_data[seg] = {"X": pos[0], "Y": pos[1], "Z": pos[2]}
-                else:
+        self._maybe_log_rates()
+
+        temp_seg_data = {}
+        temp_occluded = {}
+        # 当前正式链路先关闭 segment 接收，以降低 ViconWorker 每帧负担。
+        # 保留这段模块结构，后续如需恢复，只需打开 config.VICON_ENABLE_SEGMENTS。
+        if config.VICON_ENABLE_SEGMENTS:
+            for seg in self.seg_ids:
+                try:
+                    pos, occluded = self.client.GetSegmentGlobalTranslation(subject_name, seg)
+                    temp_occluded[seg] = bool(occluded)
+                    if not occluded:
+                        temp_seg_data[seg] = {"X": pos[0], "Y": pos[1], "Z": pos[2]}
+                    else:
+                        temp_seg_data[seg] = copy.deepcopy(self.seg_data.get(seg, {"X": 0.0, "Y": 0.0, "Z": 0.0}))
+                except Exception:
+                    temp_occluded[seg] = True
                     temp_seg_data[seg] = copy.deepcopy(self.seg_data.get(seg, {"X": 0.0, "Y": 0.0, "Z": 0.0}))
-            except Exception:
-                temp_occluded[seg] = True
+        else:
+            for seg in self.seg_ids:
+                temp_occluded[seg] = False
                 temp_seg_data[seg] = copy.deepcopy(self.seg_data.get(seg, {"X": 0.0, "Y": 0.0, "Z": 0.0}))
 
+        temp_marker_data = {}
         for marker in self.marker_ids:
             try:
                 pos, occluded = self.client.GetMarkerGlobalTranslation(subject_name, marker)
@@ -197,3 +228,4 @@ if __name__ == '__main__':
     worker.stop()
     worker.join(timeout=2)
     print("[TEST] 测试完成")
+

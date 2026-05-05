@@ -1,0 +1,51 @@
+{
+  "session_id": "independent_20260430_165242",
+  "trial_id": "trial_001",
+  "subject_id": "subject_001",
+  "start_wall_time": 1777539162.194348,
+  "schema_version": "independent_capture_v2",
+  "vicon": {
+    "host_ip": "192.168.10.1",
+    "stream_mode": 0,
+    "enable_segments": false
+  },
+  "imu": {
+    "port": "COM9",
+    "baudrate": 460800,
+    "timeout": 0.1,
+    "target_rate_hz": 30
+  },
+  "planter": {
+    "left_port": "COM13",
+    "right_port": "COM10",
+    "baudrate": 115200,
+    "timeout": 2,
+    "target_rate_hz": 20
+  },
+  "notes": "Independent realtime capture datasets, no cross-modal sync.",
+  "end_wall_time": 1777539175.7787685,
+  "vicon_stats": {
+    "captured_rows": 1353,
+    "frame_gaps": 0,
+    "subject_found": 1,
+    "marker_nonzero_frames": 1353,
+    "subject_name": "001",
+    "segment_count": 0,
+    "marker_count": 16
+  },
+  "imu_stats": {
+    "decoded_rows": 4440,
+    "parse_failures": 0,
+    "unknown_device_frames": 0
+  },
+  "planter_left_stats": {
+    "decoded_rows": 0,
+    "parse_failures": 0,
+    "init_ok": 1
+  },
+  "planter_right_stats": {
+    "decoded_rows": 0,
+    "parse_failures": 0,
+    "init_ok": 1
+  }
+}

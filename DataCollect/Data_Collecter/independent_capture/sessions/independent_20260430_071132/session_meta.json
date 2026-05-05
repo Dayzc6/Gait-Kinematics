@@ -1,0 +1,37 @@
+{
+  "session_id": "independent_20260430_071132",
+  "trial_id": "trial_001",
+  "subject_id": "subject_001",
+  "start_wall_time": 1777504292.3741071,
+  "duration_seconds": 20.0,
+  "imu": {
+    "port": "COM9",
+    "baudrate": 460800,
+    "timeout": 0.1,
+    "target_rate_hz": 30
+  },
+  "planter": {
+    "left_port": "COM10",
+    "right_port": "COM13",
+    "baudrate": 115200,
+    "timeout": 2,
+    "target_rate_hz": 20
+  },
+  "notes": "Independent realtime capture, no cross-modal sync.",
+  "end_wall_time": 1777504312.4657202,
+  "imu_stats": {
+    "decoded_rows": 6973,
+    "parse_failures": 1,
+    "unknown_device_frames": 0
+  },
+  "planter_left_stats": {
+    "decoded_rows": 0,
+    "parse_failures": 0,
+    "init_ok": 1
+  },
+  "planter_right_stats": {
+    "decoded_rows": 0,
+    "parse_failures": 0,
+    "init_ok": 1
+  }
+}

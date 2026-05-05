@@ -35,8 +35,6 @@ class AppController:
     def __init__(self):
         self.vicon_queue = queue.Queue(maxsize=config.VICON_QUEUE_MAXSIZE)
         self.write_queue = queue.Queue(maxsize=config.WRITE_QUEUE_MAXSIZE)
-        self.imu_raw_queue = queue.Queue(maxsize=config.RAW_QUEUE_MAXSIZE)
-        self.planter_raw_queue = queue.Queue(maxsize=config.RAW_QUEUE_MAXSIZE)
 
         self.vicon_worker = ViconWorker(
             config.VICON_HOST_IP,
@@ -48,14 +46,14 @@ class AppController:
             config.IMU_PORT,
             config.IMU_BAUDRATE,
             config.IMU_TIMEOUT,
-            raw_queue=self.imu_raw_queue,
+            raw_queue=None,
         )
         self.planter_worker = PlanterWorker(
             config.PLANTER_LEFT_PORT,
             config.PLANTER_RIGHT_PORT,
             config.PLANTER_BAUD_RATE,
             config.PLANTER_TIMEOUT,
-            raw_queue=self.planter_raw_queue,
+            raw_queue=None,
         )
 
         self.sync_engine = None
@@ -80,8 +78,6 @@ class AppController:
 
         self.writer_worker = WriterWorker(
             self.write_queue,
-            self.imu_raw_queue,
-            self.planter_raw_queue,
             output_dir=config.DATA_DIR,
         )
         self.writer_worker.start()

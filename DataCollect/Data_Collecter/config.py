@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-全局配置模块 - DataCollecter_2
+全局配置模块 - DataCollecter
 面向正式采集新架构：
 - ViconWorker 逐帧入队
 - SyncEngine 逐帧消费
@@ -53,16 +53,43 @@ PLANTER_FRAME_LENGTH_CANDIDATES = (39, 38)
 PLANTER_BUFFER_MAXLEN = 512
 
 # ==================== Vicon 配置 ====================
-VICON_HOST_IP = "192.168.137.157"
+VICON_HOST_IP = "192.168.10.1"
 VICON_STREAM_MODE = 0  # 与 experiments/common.py 中的 SetStreamMode(0) 保持一致
+VICON_ENABLE_SEGMENTS = False  # 当前正式链路先关闭 segment 接收，保留代码结构以便后续恢复
+VICON_RATE_PRINT_INTERVAL = 5.0  # 定期打印 frame rate / process rate（秒）
+
+# ==================== IMU 严格快照配置（毫秒） ====================
+# 只有当 7 个设备都已更新，且最早/最晚更新时间差不超过该窗口时，才生成一次完整 IMU snapshot。
+# IMU 标称 30Hz（周期约 33.3ms），这里先保守设置为 20ms，尽量减少跨周期错配。
+IMU_SNAPSHOT_WINDOW_MS = 20.0
+
+# ==================== Planter 严格成对配置（毫秒） ====================
+# 只有当左右脚最近更新时间差不超过该窗口时，才生成一次完整 Planter packet。
+# Planter 标称 20Hz（周期约 50ms），这里先保守设置为 10ms，尽量保证左右脚接近同一采样时刻。
+PLANTER_PAIR_WINDOW_MS = 10.0
 
 # ==================== 队列/写盘配置 ====================
 VICON_QUEUE_MAXSIZE = 4096
 WRITE_QUEUE_MAXSIZE = 4096
-RAW_QUEUE_MAXSIZE = 4096
 SYNC_QUEUE_TIMEOUT = 0.2
 WRITER_BATCH_SIZE = 128
 WRITER_FLUSH_INTERVAL = 0.5
+
+# ==================== 严格时间匹配阈值（毫秒） ====================
+# 规则：只允许匹配 recv_timestamp <= vicon_timestamp 的历史包，且延迟不得超过以下阈值。
+# 当前统一先按 20ms 保守设置，后续根据实际采样成功率与训练需求再微调。
+IMU_MAX_LAG_MS = 20.0
+PLANTER_MAX_LAG_MS = 20.0
+
+# ==================== 有限补写 / 超时清零配置（毫秒） ====================
+# 当当前 Vicon 帧没有新的 IMU / Planter / Vicon 数据可用时，
+# 允许在以下时间窗口内重复写入上一帧有效值；超过窗口则清零。
+IMU_HOLD_MAX_MS = 80.0
+PLANTER_HOLD_MAX_MS = 120.0
+VICON_HOLD_MAX_MS = 50.0
+
+# Planter 连续若干个“真实接收到且全 0”的包后，判定为真实抬脚 0。
+PLANTER_ZERO_CONFIRM_PACKETS = 2
 
 # 兼容旧字段，尽量减少外部引用报错
 RECORDING_INTERVAL = 0.001
@@ -184,6 +211,13 @@ def generate_synced_headers():
         'Planter_Stale_ms',
         'IMU_Matched_Flag',
         'Planter_Matched_Flag',
+        'IMU_Matched_Count',
+        'Planter_Matched_Count',
+        'IMU_All_Matched_Flag',
+        'Planter_Both_Matched_Flag',
+        'Vicon_Original_Valid_Flag',
+        'Vicon_Held_Flag',
+        'Vicon_Timeout_Zero_Flag',
     ]
 
     for seg in VICON_SEGS:
@@ -194,6 +228,11 @@ def generate_synced_headers():
 
     for name in IMU_NAMES:
         headers.extend([
+            f'IMU_{name}_Matched_Flag',
+            f'IMU_{name}_Held_Flag',
+            f'IMU_{name}_Timeout_Zero_Flag',
+            f'IMU_{name}_Recv_Timestamp',
+            f'IMU_{name}_Stale_ms',
             f'IMU_{name}_Acc_X', f'IMU_{name}_Acc_Y', f'IMU_{name}_Acc_Z',
             f'IMU_{name}_Gyro_X', f'IMU_{name}_Gyro_Y', f'IMU_{name}_Gyro_Z',
             f'IMU_{name}_Roll', f'IMU_{name}_Pitch', f'IMU_{name}_Yaw',
@@ -201,10 +240,19 @@ def generate_synced_headers():
         ])
 
     for side in ['Left', 'Right']:
+        headers.extend([
+            f'Planter_{side}_Matched_Flag',
+            f'Planter_{side}_Held_Flag',
+            f'Planter_{side}_Zero_Confirmed_Flag',
+            f'Planter_{side}_Timeout_Zero_Flag',
+            f'Planter_{side}_Recv_Timestamp',
+            f'Planter_{side}_Stale_ms',
+        ])
         for i in range(PLANTER_SENSOR_POINTS):
             headers.append(f'Planter_{side}_{i}')
 
     return headers
+
 
 
 def generate_imu_raw_headers():

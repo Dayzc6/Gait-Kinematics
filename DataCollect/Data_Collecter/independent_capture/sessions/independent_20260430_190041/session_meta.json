@@ -1,0 +1,84 @@
+{
+  "session_id": "independent_20260430_190041",
+  "trial_id": "trial_001",
+  "subject_id": "subject_001",
+  "start_wall_time": 1777546841.9591627,
+  "schema_version": "independent_capture_v2",
+  "vicon": {
+    "host_ip": "192.168.10.1",
+    "stream_mode": 0,
+    "enable_segments": false
+  },
+  "imu": {
+    "port": "COM9",
+    "baudrate": 460800,
+    "timeout": 0.1,
+    "target_rate_hz": 30
+  },
+  "planter": {
+    "left_port": "COM10",
+    "right_port": "COM13",
+    "baudrate": 115200,
+    "timeout": 2,
+    "target_rate_hz": 20,
+    "split_files": true
+  },
+  "notes": "Independent realtime capture datasets, no cross-modal sync.",
+  "end_wall_time": 1777546853.3047278,
+  "vicon_stats": {
+    "captured_rows": 1129,
+    "frame_gaps": 0,
+    "subject_found": 1,
+    "marker_nonzero_frames": 1129,
+    "subject_name": "001",
+    "segment_count": 0,
+    "marker_count": 16
+  },
+  "imu_stats": {
+    "decoded_rows": 3095,
+    "parse_failures": 0,
+    "unknown_device_frames": 0
+  },
+  "planter_left_stats": {
+    "decoded_rows": 65,
+    "parse_failures": 0,
+    "init_ok": 1,
+    "read_calls": 256,
+    "nonempty_reads": 256,
+    "empty_reads": 0,
+    "raw_bytes_received": 2560,
+    "max_chunk_size": 10,
+    "max_buffer_len": 47,
+    "raw_bytes_left_in_buffer_on_stop": 25,
+    "resync_events": 65,
+    "bytes_dropped_resync": 65,
+    "invalid_foot_id_events": 0,
+    "candidate_frames_total": 65,
+    "candidate_frames_38": 65,
+    "candidate_frames_39": 0,
+    "side_mismatch_rows": 0,
+    "all_zero_rows": 20,
+    "review_rows": 0
+  },
+  "planter_right_stats": {
+    "decoded_rows": 66,
+    "parse_failures": 0,
+    "init_ok": 1,
+    "read_calls": 261,
+    "nonempty_reads": 261,
+    "empty_reads": 0,
+    "raw_bytes_received": 2610,
+    "max_chunk_size": 10,
+    "max_buffer_len": 47,
+    "raw_bytes_left_in_buffer_on_stop": 36,
+    "resync_events": 66,
+    "bytes_dropped_resync": 66,
+    "invalid_foot_id_events": 0,
+    "candidate_frames_total": 66,
+    "candidate_frames_38": 66,
+    "candidate_frames_39": 0,
+    "side_mismatch_rows": 0,
+    "all_zero_rows": 0,
+    "review_rows": 0
+  }
+}
