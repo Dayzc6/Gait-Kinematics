@@ -11,6 +11,8 @@ from config import AC_dim
 from config import Hidden_dim
 from config import num_layers
 
+# AC需要4个DC进行堆叠
+# 也就是说，需要循环四次
 class Model_AC(nn.Module):
     def __init__(self,in_dim=In_dim,ac_dim=AC_dim,hidden_dim=Hidden_dim):
         super().__init__()
@@ -25,6 +27,7 @@ class Model_AC(nn.Module):
             for i in range(num_layers)
         ])
         
+        # 这个应该是4个堆叠完后输出的分类用的output，最后一个堆叠完后才使用分类维度
         self.conv_out=nn.Conv1d(in_channels=hidden_dim,out_channels=ac_dim,kernel_size=1)
 
         # self.init=True
@@ -33,11 +36,12 @@ class Model_AC(nn.Module):
         # 这将导致输入维度不匹配，程序直接报错崩溃。
 
     def forward(self,x):
-        out=self.conv_in(x)
+        ac_out=self.conv_in(x)
+        intermediate_features = [] # 每一次
         for layer in self.layers:
-            out=layer(out)
-        out=self.conv_out(out)
-        return out
+            ac_out=layer(ac_out)
+        # out=self.conv_out(out)
+        return ac_out
                 
 
         

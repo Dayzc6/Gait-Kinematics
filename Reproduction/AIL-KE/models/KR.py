@@ -9,6 +9,11 @@ import DC
 from config import In_dim,KR_dim
 from config import Hidden_dim
 from config import num_layers
+from config import stacks
+
+# KR需要4个DC进行堆叠
+# KR的DC需要注入经过FAN处理后的AC特征
+# 也就是说，需要循环四次
 
 class Model_KR(nn.Module):
     def __init__(self,in_dim=In_dim,hidden_dim=Hidden_dim,kr_dim=KR_dim):
@@ -23,21 +28,11 @@ class Model_KR(nn.Module):
         
         self.conv_out=nn.Conv1d(in_channels=hidden_dim,out_channels=kr_dim,kernel_size=1)
 
-    def Temp_kr_dim(self,x):
-        temp_tensor=t.zeros(x)
-        temp_kr_dim_list=[]
-        for layer in self.layers:
-            temp_tensor=layer(temp_tensor)
-            temp_kr_dim=temp_tensor.shape(1)
-            temp_kr_dim_list.append(temp_kr_dim)
-        return temp_kr_dim_list
-
     def forward(self,x):
         out=self.conv_in(x)
         for layer in self.layers:
-            out=layer(out)
-            temp_kr_dim=out.shape(1)
-            
-        out=self.conv_out(out)
+
+            out=layer(out)  
+        # out=self.conv_out(out)
         return out
     

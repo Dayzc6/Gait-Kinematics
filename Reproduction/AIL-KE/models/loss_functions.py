@@ -19,7 +19,7 @@ class AILKE_Loss(nn.Module):
         # target_ac 形状: (Batch, Time)        
         Loss_ac=self.ac_criterion(pred_ac,target_ac)
 
-        # 如果是联合训练阶段，还需要加上回归损失[cite: 1]        
+        # 如果是联合训练阶段，还需要加上回归损失      
         if pred_kr is not None:
             # pred_kr 形状: (Batch, Num_Classes, Time)
             # target_kr 形状: (Batch, Time)  

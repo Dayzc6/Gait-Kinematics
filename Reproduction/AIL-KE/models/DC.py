@@ -6,9 +6,9 @@ import numpy as np
 import sys
 from config import Kernel_size
 from config import Hidden_dim
-from config import in_dim
+from config import num_layers
 
-# 定义单个膨胀残差层
+# 定义单个膨胀残差单元
 # dilation:膨胀参数
 class DilatedResidualLayer(nn.Module):
     def __init__(self,dilation,in_channels=Hidden_dim,out_channels=Hidden_dim):
@@ -31,6 +31,19 @@ class DilatedResidualLayer(nn.Module):
         # out=self.dropout(out)
         return x + out
 
+# 将10个膨胀残差单元封装成1个stack
+class DCStack(nn.Module):
+    def __init__(self,hidden_dim=Hidden_dim):
+        super().__init__()
+        self.layers=nn.ModuleList([
+            DilatedResidualLayer(dilation=2**i,in_channels=hidden_dim,out_channels=hidden_dim)
+            for i in range(num_layers)
+        ])
+    
+    def forward(self,x):
+        for layer in self.layers:
+            x=layer(x)
+        return x
 
 
 
