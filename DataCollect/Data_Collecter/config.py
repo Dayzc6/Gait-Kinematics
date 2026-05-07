@@ -81,16 +81,6 @@ WRITER_FLUSH_INTERVAL = 0.5
 IMU_MAX_LAG_MS = 20.0
 PLANTER_MAX_LAG_MS = 20.0
 
-# ==================== 有限补写 / 超时清零配置（毫秒） ====================
-# 当当前 Vicon 帧没有新的 IMU / Planter / Vicon 数据可用时，
-# 允许在以下时间窗口内重复写入上一帧有效值；超过窗口则清零。
-IMU_HOLD_MAX_MS = 80.0
-PLANTER_HOLD_MAX_MS = 120.0
-VICON_HOLD_MAX_MS = 50.0
-
-# Planter 连续若干个“真实接收到且全 0”的包后，判定为真实抬脚 0。
-PLANTER_ZERO_CONFIRM_PACKETS = 2
-
 # 兼容旧字段，尽量减少外部引用报错
 RECORDING_INTERVAL = 0.001
 
@@ -211,13 +201,6 @@ def generate_synced_headers():
         'Planter_Stale_ms',
         'IMU_Matched_Flag',
         'Planter_Matched_Flag',
-        'IMU_Matched_Count',
-        'Planter_Matched_Count',
-        'IMU_All_Matched_Flag',
-        'Planter_Both_Matched_Flag',
-        'Vicon_Original_Valid_Flag',
-        'Vicon_Held_Flag',
-        'Vicon_Timeout_Zero_Flag',
     ]
 
     for seg in VICON_SEGS:
@@ -228,11 +211,6 @@ def generate_synced_headers():
 
     for name in IMU_NAMES:
         headers.extend([
-            f'IMU_{name}_Matched_Flag',
-            f'IMU_{name}_Held_Flag',
-            f'IMU_{name}_Timeout_Zero_Flag',
-            f'IMU_{name}_Recv_Timestamp',
-            f'IMU_{name}_Stale_ms',
             f'IMU_{name}_Acc_X', f'IMU_{name}_Acc_Y', f'IMU_{name}_Acc_Z',
             f'IMU_{name}_Gyro_X', f'IMU_{name}_Gyro_Y', f'IMU_{name}_Gyro_Z',
             f'IMU_{name}_Roll', f'IMU_{name}_Pitch', f'IMU_{name}_Yaw',
@@ -240,19 +218,10 @@ def generate_synced_headers():
         ])
 
     for side in ['Left', 'Right']:
-        headers.extend([
-            f'Planter_{side}_Matched_Flag',
-            f'Planter_{side}_Held_Flag',
-            f'Planter_{side}_Zero_Confirmed_Flag',
-            f'Planter_{side}_Timeout_Zero_Flag',
-            f'Planter_{side}_Recv_Timestamp',
-            f'Planter_{side}_Stale_ms',
-        ])
         for i in range(PLANTER_SENSOR_POINTS):
             headers.append(f'Planter_{side}_{i}')
 
     return headers
-
 
 
 def generate_imu_raw_headers():

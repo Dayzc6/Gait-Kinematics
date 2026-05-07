@@ -1,6 +1,6 @@
 # Activity Classifier
-# input：加速度、角速度、（四元数）
-# output：动作类别（如：深蹲、卧推）
+# input：加速度、角速度、角度
+# output：相位识别
 import torch as t
 import torch.nn as nn
 import pandas as pd
@@ -9,7 +9,7 @@ import DC
 from config import In_dim
 from config import AC_dim
 from config import Hidden_dim
-from config import num_layers
+from config import stacks
 
 # AC需要4个DC进行堆叠
 # 也就是说，需要循环四次
@@ -22,11 +22,9 @@ class Model_AC(nn.Module):
         # 你不能在 forward 时像调用普通函数一样动态更改它。
         # 这会导致模型无法构建计算图，或者所有层都在使用同一个卷积核。
         # 所以：预定义所有的扩张层，存入ModuleList
-        self.layers=nn.ModuleList([
-            DC.DilatedResidualLayer(dilation=2**i,in_channels=hidden_dim,out_channels=hidden_dim)
-            for i in range(num_layers)
-        ])
-        
+        self.ac_stacks=nn.ModuleList([DC.DCStack(hidden_dim) for _ in range(stacks)])
+
+      
         # 这个应该是4个堆叠完后输出的分类用的output，最后一个堆叠完后才使用分类维度
         self.conv_out=nn.Conv1d(in_channels=hidden_dim,out_channels=ac_dim,kernel_size=1)
 
@@ -36,11 +34,12 @@ class Model_AC(nn.Module):
         # 这将导致输入维度不匹配，程序直接报错崩溃。
 
     def forward(self,x):
+        # x.shape
         ac_out=self.conv_in(x)
-        intermediate_features = [] # 每一次
-        for layer in self.layers:
-            ac_out=layer(ac_out)
-        # out=self.conv_out(out)
+        # ac_out.shape
+        for ac_stack in self.ac_stacks:
+            ac_out=ac_stack(ac_out)
+        ac_out=self.conv_out(ac_out)
         return ac_out
                 
 

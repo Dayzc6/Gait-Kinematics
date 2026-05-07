@@ -16,7 +16,7 @@ class AILKE_Loss(nn.Module):
     def forward(self,pred_ac,target_ac,pred_kr=None,target_kr=None):
         # 计算分类损失
         # pred_ac 形状: (Batch, Num_Classes, Time)
-        # target_ac 形状: (Batch, Time)        
+        # target_ac 形状: (Batch, Time)   这里的Time指什么？      
         Loss_ac=self.ac_criterion(pred_ac,target_ac)
 
         # 如果是联合训练阶段，还需要加上回归损失      

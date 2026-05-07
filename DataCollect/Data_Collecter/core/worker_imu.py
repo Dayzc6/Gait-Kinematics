@@ -2,9 +2,8 @@
 """
 IMU 数据接收线程
 - 接收并解析单设备 IMU 帧
-- 每来一帧即按设备独立入缓冲
-- 不再等待 7 个设备凑整组 snapshot
-- 供 SyncEngine 按 Vicon 时间对每个设备独立严格匹配
+- 仅在 7 个设备都已更新且时间窗口足够小时，生成一次完整 IMU snapshot
+- 供 SyncEngine 按 Vicon 时间严格匹配
 """
 import copy
 import os
@@ -23,11 +22,11 @@ if PROJECT_ROOT not in sys.path:
 try:
     from DataCollect.Data_Collecter import config
     from DataCollect.Data_Collecter.utils.protocol_imu import parse_imu_frame
-    from DataCollect.Data_Collecter.utils.data_models import IMUSample
+    from DataCollect.Data_Collecter.utils.data_models import IMUPacket
 except ImportError:
     import config
     from utils.protocol_imu import parse_imu_frame
-    from utils.data_models import IMUSample
+    from utils.data_models import IMUPacket
 
 
 class IMUWorker(Thread):
@@ -55,29 +54,38 @@ class IMUWorker(Thread):
             } for name in config.IMU_NAMES
         }
         self.latest_device_timestamp = {name: None for name in config.IMU_NAMES}
-        self.buffers_by_device = {
-            name: deque(maxlen=config.IMU_BUFFER_MAXLEN) for name in config.IMU_NAMES
-        }
-        self.seq_index_by_device = {name: 0 for name in config.IMU_NAMES}
+        self.packet_buffer = deque(maxlen=config.IMU_BUFFER_MAXLEN)
+        self.last_snapshot_ts = None
 
     def get_latest_data(self):
         with self.data_lock:
             return copy.deepcopy(self.imu_data)
 
-    def get_latest_timestamp_by_device(self):
-        with self.data_lock:
-            return copy.deepcopy(self.latest_device_timestamp)
-
-    def get_buffer_snapshot(self, device_name):
+    def get_buffer_snapshot(self):
         with self.buffer_lock:
-            return list(self.buffers_by_device.get(device_name, []))
-
-    def get_all_buffer_snapshots(self):
-        with self.buffer_lock:
-            return {name: list(buf) for name, buf in self.buffers_by_device.items()}
+            return list(self.packet_buffer)
 
     def is_connected(self):
         return self.available and self.ser is not None and self.ser.is_open
+
+    def _maybe_emit_snapshot(self):
+        timestamps = list(self.latest_device_timestamp.values())
+        if any(ts is None for ts in timestamps):
+            return
+
+        min_ts = min(timestamps)
+        max_ts = max(timestamps)
+        if (max_ts - min_ts) * 1000.0 > config.IMU_SNAPSHOT_WINDOW_MS:
+            return
+
+        snapshot_ts = max_ts
+        if self.last_snapshot_ts is not None and snapshot_ts <= self.last_snapshot_ts:
+            return
+
+        packet = IMUPacket(recv_timestamp=snapshot_ts, data=copy.deepcopy(self.imu_data))
+        with self.buffer_lock:
+            self.packet_buffer.append(packet)
+        self.last_snapshot_ts = snapshot_ts
 
     def run(self):
         try:
@@ -128,16 +136,7 @@ class IMUWorker(Thread):
                         with self.data_lock:
                             self.imu_data[imu_name] = imu_data_dict
                             self.latest_device_timestamp[imu_name] = recv_ts
-
-                        with self.buffer_lock:
-                            self.seq_index_by_device[imu_name] += 1
-                            sample = IMUSample(
-                                device_name=imu_name,
-                                recv_timestamp=recv_ts,
-                                seq_index=self.seq_index_by_device[imu_name],
-                                data=copy.deepcopy(imu_data_dict),
-                            )
-                            self.buffers_by_device[imu_name].append(sample)
+                            self._maybe_emit_snapshot()
 
                 time.sleep(0.001)
         except Exception as e:

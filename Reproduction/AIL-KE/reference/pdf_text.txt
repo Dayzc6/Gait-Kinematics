@@ -1,0 +1,907 @@
+=== Page 1 ===
+Article https://doi.org/10.1038/s41467-025-58624-6
+Learning-based 3D human kinematics
+estimation using behavioral constraints from
+fi
+activity classi cation
+Received:15September2024 DaekyumKim 1,2,3,YichuJin 1,4,HaedoCho 1,4,TrumanJones 1,
+YuMengZhou1,AmenehFadaie1,DmitryPopov1,KrithikaSwaminathan 1&
+Accepted:28March2025
+ConorJ.Walsh 1
+Checkforupdates Inertialmeasurementunitsofferacost-effective,portablealternativetolab-
+basedmotioncapturesystems.However,measuringjointanglesandmove-
+menttrajectorieswithinertialmeasurementunitsischallengingduetosignal
+drifterrorscausedbybiasesandnoise,whichareamplifiedbynumerical
+integration.Existingapproachesuseanatomicalconstraintstoreducedriftbut
+requirebodyparametermeasurements.Learning-basedapproachesshow
+promisebutoftenlackaccuracyforbroadapplications(e.g.,strengthtrain-
+ing).Here,weintroducetheActivity-in-the-loopKinematicsEstimator,anend-
+to-endmachinelearningmodelincorporatinghumanbehavioralconstraints
+forenhancedkinematicsestimationusingtwoinertialmeasurementunits.It
+integratesactivityclassificationwithkinematicsestimation,leveraginglimited
+movementpatternsduringspecificactivities.Indynamicscenarios,our
+approachachievedtrajectoryandshoulderjointangleerrorsunder0.021m
+and6:5°,respectively,52%and17%lowerthanerrorswithoutincludingactivity
+classification.Theseresultshighlightaccuratemotiontrackingwithminimal
+inertialmeasurementunitsanddomain-specificcontext.
+Humanmotioncapturehaslongbeenacorecomponentoffieldslike and gyroscope measurements, human limb positions and joint
+biomechanics,clinicalresearch,sportsscience,andentertainment1–4. angles can be estimated in varied environments. Despite being
+Opticalcamera-basedmotioncapturesystemshavebeenusedasthe cheap, portable, and ubiquitous, IMUs exhibit a wide range of
+goldstandardformeasuringhumanpartialorwhole-bodykinematics, kinematic tracking accuracies compared to camera-based motion
+providingerrorswithin1-mmformovementtrajectoryestimationand capturesystems,withsomereportsshowingshoulderjointerrors
+within1°–3°forjointangleestimation5.However,thesecamera-based closeto10°5,10.
+systemsareoftenlimitedbyhighcosts,limitedworkspace,andvisual The main challenge with IMUs for kinematics estimation is the
+occlusionissues4,6,7. presenceoftime-varyingbiasandnoiseintherawlinearacceleration
+To address these limitations, inertial measurement units andangularvelocitymeasurements.Fromnumericalintegration,these
+(IMUs)havebeenwidelyexploredasacost-effectiveandwearable biasesandnoiseresultindrifterrorsthataccumulateovertime11,12.To
+alternativeformeasuringhumanbodymovements8.IMUscontain address the IMU drift issue, existing approaches utilize kinematic
+accelerometers, gyroscopes, and often magnetometers, which constraints that are intrinsic to human anatomy to constrain drift
+measure linear accelerations, angular velocities, and magnetic accumulation.TheMovellasystemfromXsensuses17IMUsplacedon
+fields,respectively9.Bynumericallyintegratingtheaccelerometer allbodysegmentsandleveragesfull-bodykinematicrelationshipsto
+1JohnA.PaulsonSchoolofEngineeringandAppliedSciences,HarvardUniversity,Cambridge,MA,USA.2SchoolofMechanicalEngineering,KoreaUniversity,
+Seoul,RepublicofKorea.3SchoolofSmartMobility,KoreaUniversity,Seoul,RepublicofKorea.4Theseauthorscontributedequally:YichuJin,HaedoCho.
+e-mail:walsh@seas.harvard.edu
+NatureCommunications|( 2025)1 6:3454 1
+;,:)(0987654321 ;,:)(0987654321
+
+=== Page 2 ===
+Article https://doi.org/10.1038/s41467-025-58624-6
+mitigate drift by constraining the estimation to biomechanically kinematicsisstilllimitedbytheperformanceofthebaselinemachine
+plausibleconfigurations13.Otherapproacheshaveaimedtoleverage learningmodel.
+similarinformationbutwithareducednumberofsensors.Priorwork Inthiswork,wedevelopedandevaluatedanend-to-endmachine
+hasshownthatleveraginganindividual’sjointrangeofmotioncan learning model, Activity-in-the-loop Kinematics Estimator (AIL-KE),
+constrain knee angle estimates to a specific range using just two that incorporates human behavioral constraints within a learning-
+IMUs14.AnotherexamplewithasingleIMUleveragestherelationship basedkinematicsestimationmodel.AIL-KElearnsandleveragesthe
+betweenthedirectionoftheforearmandthepositionofthearmto behavioral constraints inherent to specific activities by integrating
+estimatethetrajectoryofbothwristandelbow15.Theseapproaches activityclassificationinformationwiththekinematicsestimation.This
+havedemonstratedthatkinematicconstraintscaneffectivelyreduce behavioral constraint-based model is designed based onthe under-
+IMUdrift.However,theperformanceofthesemethodsisdependent standingthathumanmotion,despiteitshighdimensionality,exhibits
+ontheprecisionofbodyparametermeasurements(e.g.,limblengthor limitedpatternsandreducedvariabilitywithinagivenactivity23,24.To
+jointrangeofmotion,ROM)andtheaccuracyofthekinematicscon- maximize practicality of a wearable sensing system, we limit the
+straintformulations. maximumnumberofIMUsusedinthisworktotwoandfocusedon
+Learning-based methods can automatically infer the kinematic partial-bodykinematicsestimation.Weevaluatedtheperformanceof
+relationships between different body segments and generate drift- AIL-KEintwodynamicfunctionalscenarios:(i)estimatingwristand
+corrected kinematic estimates with a few inertial sensors. One chest trajectories during various strength training exercises and (ii)
+approach trained machine learning models with synthetic datasets estimatingshoulderjointanglesduringsimulatedindustrialassembly
+from optical motion capture (OMC) systems to measure full-body work. The approach presented in this paper aims to address the
+kinematicswithonlysixIMUs16,17.Learning-basedapproacheshavealso challenges of obtaining accurate movement trajectories and joint
+beenutilizedtoestimatepartial-bodykinematics,likewristorelbow anglesusingIMUsoverprolongedperiods(3-10minutes)withminimal
+jointtrajectory,usingasingleIMUonthewrist18,19. sensorsbyleveragingbehavioralconstraints.
+Extendingbeyondtheuseofkinematicconstraints,therearestill
+opportunities to further improve IMU-based motion tracking accu- Results
+racy.Specifically,informationabouttheactivityapersonisconducting Activity-in-the-loopKinematicsEstimator
+couldbe used as a behavioralconstraint tofurther reduce tracking The AIL-KE is composed of three sub-structures: Activity Classifier
+errorsfromIMUdrift.Suchaconcepthasbeenappliedduringwalking (AC), Kinematics Regressor (KR), and Feature Aggregation Network
+tasksviathezerovelocityupdatemethod(ZUPT)20.Duringwalking, (FAN).Figure1depictsanoverviewofAIL-KE.ACclassifiestheactivity
+thereisaperiodwhenthefootremainsstationaryrelativetoground; that a user is performing at every timestep. The inputs of AC are
+this information has been harnessed to re-initialize numerical inte- 3-dimensional accelerations, 3-dimensional angular velocities, and
+grationpergaitcycle,effectivelymitigatinganypotentiallong-term 4-dimensional unit quaternions obtained from IMUs. KR estimates
+driftacrossstrides21.Theseinstancesofstationarybodypointshave eithertrajectoriesandvelocitiesofIMUsorjointanglesbetweentwo
+been estimated with heuristic22 or machine learning algorithms17,22 bodysegmentsateverytimestepbytakingthesameinputsasAC.We
+using accelerometer and/orgyroscope signals.However, despite its usedstackedDilatedConvolutionalNeuralNetworks(DCNNs)forAC
+effectiveness, especially in the demonstrated walking task, ZUPT is andKRbecausethesenetworkshavebeenwidelyusedinIMU-based
+mostlylimitedtocyclicactivitieswithdistinctzerovelocityintervals, driftandnoisereduction11.
+whichmaynotalwaysexistformorerandomupperbodymovements. FANisthe corepartofAIL-KEthatincorporates the behavioral
+Furthermore, in the context of machine learning-based kinematics constraintofactivityclassification.FANpassestheactivityclassifica-
+estimation,ZUPTfunctionsasapost-processingstepthatisappliedto tion information to the kinematics regressor. Specifically, the final
+theoutputofabaselinemachinelearningmodel17,ratherthanbeingan hiddenlayerofeachstackofACisprocessedinFAN,whichisthenfed
+end-to-end model. Consequently, the accuracy of estimated intoeachstackofKR.
+IMU 1
+IMU 2
+Acceleration (3 axis)
+User performing an activity
+Trajectory & Joint angle
+Angular velocity (3 axis)
+Feature Aggregator
+Kinematics Regressor
+Quaternion (4 axis)
+IMU data AIL-KE
+Fig.1|Overviewofactivity-in-the-loopkinematicsestimator(AIL-KE).AIL-KEconsistsofactivityclassifier(AC),featureaggregatornetwork(FAN),andkinematics
+regressor(KR).
+NatureCommunications|( 2025)1 6:3454 2
+
+=== Page 3 ===
+Article https://doi.org/10.1038/s41467-025-58624-6
+Trajectoryestimationduringstrengthtrainingexercises(Exer) speed,thetrajectoryerrorofAIL-KEwas55.1%and63.8%lowerthan
+Data were collected from fifteen healthy participants (3 females; thoseofDCNNandLSTM,respectively,andthevelocityerrorofAIL-KE
+28:1±5:6years)withtwoIMUs,oneplacedontheirchestandoneon was45%and70.1%lowerthanthoseofDCNNandLSTMrespectively.
+theirrightwrist,tomeasuretheir3Dmovementvelocitiesandtrajec- Overall,AIL-KEoutperformedtheothertwomethodsacrossallspeeds.
+tories(SupplementaryFig.S1).Theparticipantswereaskedtoperform AIL-KEhadatrajectoryerrorstandarddeviationof0:0007macrossall
+foursetsof11differentstrengthtrainingexerciseswith12repetitions movementspeeds.Thisvaluewasseventimeslowerthanthosefor
+perset(fulllistshowninSupplementaryFig.S2).Thefoursetswere DCNNandLSTM,indicatingthatAIL-KEhadlowervariabilityinper-
+performedatfourdifferentself-selectedmovementspeeds:normal, formance across different speeds (more detail in Supplementary
+slow,fast,andvariable.KinematicsdatafromIMUsandagroundtruth TablesS6andS7).
+OMC system were time-synchronized and frame-aligned to ensure Wefurtheranalyzedtheerrorsoftheestimatedtrajectorybased
+properevaluation25(moredetailinMethods).Weuseddatafrom11 on different strength training exercises, depicted in Fig. 2g. Within
+randomly selected participants for training and one participant for these exercises, the barbell lunge had the largest error (0:034m)
+validating the classification model. Data from the remaining three acrossallmodels.Still,thiserrorwaslowerthantheerrorsof0:069m
+participantswereusedasthetestdatasettoevaluatetheperformance forDCNNand0:088mforLSTM.Foralltheotherstrengthtraining
+ofthe model.Forkinematics estimation,we compared ourmethod exercises,AIL-KEhaderrorslowerthan0:030m.Fortrajectoryesti-
+againsttwolearning-basedmethods: mation, the RMSE when Triceps Extension was misclassified was
+(cid:129) Longshort-termmemory(LSTM):acommonlyuseddeeplearning 0:0172m,comparedtotheoverallRMSEofTricepsExtension,which
+structurefortime-seriesdataanalysis. was 0:0165m. This small difference is likelydue to the similarity in
+(cid:129) DCNN:thesamemodelarchitectureasourproposedmethod,but TricepsExtensionandBicepsCurlinourparticipantsasmanybiceps
+withoutACandFAN. curlmotionswereperformedwiththedumbbellsorientedvertically,
+similar to in triceps extensions. We also observed that the error of
+AC achieved an overall classification accuracy of 99.6%. It DCNNforShoulderPresswasunexpectedlyhigherthantheerrorsfor
+demonstrated100%accuracyacrossalltheexerciselabelsexceptfor the other two models; further research is needed to systematically
+thetricepsextensionexercise(Fig.2a).Tricepsextensionswerecon- analyzetheseerrorsbycollectingadditionaldataandidentifyingtheir
+fusedwithBicepscurlsapproximately6%ofthetime. sources.
+Overall,AIL-KEachievedavelocityerror(inRootMeanSquared To assess the sensitivity of AIL-KE to individual variability, we
+Error,RMSE)of0:020m=sversusDCNNwith0:040m=sandLSTM testeditsperformanceacrossthetestsetparticipants.Thestandard
+with0:063m=s(Fig.2b,c).TheerrorsofAIL-KEwere48%and67% deviation values of the errors of our generalized model across the
+lowerthantheerrorsofDCNNandLSTM,respectively.Inaddition, threetestparticipantsforthewristIMUtrajectorywereaslowas6:6(cid:2)
+fortrajectoryestimation,AIL-KEachievedanRMSEof0:02mwhile 10(cid:3)5m(moredetailinSupplementaryTableS1).Similarly,toevaluate
+RMSEs from DCNN and LSTM were 0:044m and 0:050m, respec- sensitivitytopotentialdriftinthesensor,weconductedanadditional
+tively.Eachoftheseerrorswascalculatedfromthethreetestpar- experimentthatsimulatedrotationalshiftsinsensordata.Wefound
+ticipantsbyaveragingacrossboththechestandwristIMUsensors. thattheaverageerrorremainswithin0:03mforupto7°ofartificially
+TheaverageRMSEacrossthechestandwristIMUsforAIL-KEwas addedrandomsensorrotation(SupplementaryFig.S9).
+52%and58%lowerthantheerrorsofDCNNandLSTM,respectively. WefurtherperformedtheMann–WhitneyUtesttodeterminethe
+WefurtherfoundthattheimprovementofAIL-KEoverDCNNwas statisticalsignificanceoftheerrorsinthepeak-to-peakdistance,i.e.,
+consistentacrossdifferentnumbersofstacksofDCNNsatboththe the distance between the maximum and the minimum peaks, for
+chestandwrist(SupplementaryTableS4).Exampletime-seriesdata LSTM,DCNN,andAIL-KE(moredetailinMethods).Wedidnotobserve
+fromaparticipantperformingBenchPressExerciseisdepictedin statisticalsignificancebetweenthepeak-to-peakRMSEsofDCNNand
+Fig.2d.Detailsoftheperformanceofallmodelstestedaretabulated AIL-KEwhenconsideringdatafromtheentireexercise(Supplementary
+inSupplementaryTablesS1andS2;wealsoincludetheperformance Fig. S8a). This was likely due to the high variance introduced by
+ofaTransformer-basedmodelasacomparison.Amoviecontaining including all exercises. However, for each individual exercise, we
+exercise demonstrations and the corresponding estimated trajec- observedstatisticalsignificance(p<0:001)betweenAIL-KEandDCNN
+toriesisshowninSupplementaryMovie1.Inadditiontotime-series (SupplementaryFig.S8b).
+comparisons,wealsocomparedthetrueandestimatedmeanand
+peakvelocities,whichareimportantmetricsinstrengthtraining26,27, Orientationestimationinsimulatedindustrialassembly
+across bench press repetitions in the test set (Supplementary work(Ind)
+Figs.S5andS6).Wefindthatbothpointmetricsshowstrongcor- Sixparticipants(allmales;30±5:5years)worethreeIMUs,oneontheir
+relations with the ground truth, with correlation coefficients ðrÞ chestandanothertwoontheirrightandleftupperarmstomeasure
+greaterthan0.828. shoulderjointangles.Theywereaskedtoperformthreetasks,simu-
+WeobservedthatAIL-KEhadalowerRMSEof0:017mfromthe latingatypicalindustrialassemblyworkflow:overheaddrilling,desk
+chestIMUcomparedtoanRMSEof0:023mfromthewristIMU.Itis work,andtreadmillwalking.Eachtaskwascompletedinthree-minute
+worthnotingthatthewristundergoeslargerrangesofmovementsand intervals,totalingmorethan10minutesforeachtrial,withbreaksand
+velocitiescomparedtothechestinmostexercises.Instrengthtrain- transitionsincluded.Eachparticipantperformedfivetrialsofactivities
+ing, movement velocity is self-selected and significantly differs forapproximatelyonehourofdatacollectedintotal.
+dependingonanindividuals’workoutstrategyandleveloffatigue29,30. TheinputstoAIL-KEweredatafromtwoIMUs(chest-rightarmor
+Therefore,itisimportanttovalidatetheperformanceofthemodelsat chest-leftarm),andthecorrespondinggroundtruthdatawerefrom
+differentmovementspeeds. motioncapturecameras.Likeinthestrengthtrainingexperiment,we
+Weconductedacomparativeanalysisofmovementspeedsand alignedthemotioncapturesystemandIMUcoordinateframes25.We
+assessedthecorrespondingeffectonmethodperformance(Fig.2e,f). performed Leave-One-Out Cross Validation (LOOCV) to assess the
+ForAIL-KE,trajectoryandvelocityerrorsforfastspeedwerehigher generalizabilityofAIL-KEacrossparticipants:datafromeachpartici-
+thantheerrorsfortheothermovementspeeds,withRMSEsof0:022m pantwasusedasatestdatasettoevaluatethemodel’sperformance.
+and0:024m=sfortrajectoryandvelocityestimation,respectively.Still, Thetrainingdataincludedfourparticipants,whilethevalidationdata
+theseerrorsforthefastspeedwereonly0:002mand0:003m=shigher includedoneperson.ACachievedanoverallclassificationaccuracyof
+than the average errors of AIL-KE across all the speeds. At the fast 99.8%(Fig.3a).
+NatureCommunications|( 2025)1 6:3454 3
+
+=== Page 4 ===
+0.06 0.94
+Weevaluatedtheestimationresults,whichrepresenttheaverage Weevaluatedtheestimationresultsfor3Djointanglesoftheright
+RMSEacrossparticipantsforthe3Djointanglesoftherightandleft andleftupperarms(seeEq.8inMethods:Orientationcalculationfor
+upperarms(seeEq.8inMethods:Orientationcalculationformore moredetailabouthowerrorswerecomputed)(Fig.3b).Wecompared
+detailabouthowerrorswerecomputed)(Fig.3b). AIL-KEagainstthreemethods:LSTM,DCNN,andXsens.InXsens,we
+hturT
+dnuorG
+Predicted
+)m(
+rorrE
+yrotcejarT
+)s/m(
+rorrE
+yticoleV
+Movement Speeds Movement Speeds
+)m(
+rorrE
+yrotcejarT
+)s/m(
+rorrE
+yticoleV
+LSTM DCNN AIL-KE LSTM DCNN AIL-KE
+Optical motion capture LSTM DCNN AIL-KE
+LSTM DCNN AIL-KE
+Normal Slow Fast Variable Normal Slow Fast Variable
+)m(
+yrotcejarT
+UMI
+tsirW
+a 100% b c
+BP 0.050 0.063
+0.06
+BC 0.044
+LR
+0.04
+SP
+52.4% 0.040 LA 0.04
+SQ 47.7%
+BL 0.021
+0.02
+BR 0.02 0.021
+TR
+DF
+DL
+BP BC LR SP LA SQ BL BR TR DF DF 0%
+d
+0.4
+0.2
+0
+e LSTM DCNN AIL-KE
+0.08 0.1
+0.06
+0.06
+0.04
+0.05
+0.04
+0.02
+0.02
+BP BC LR SP LA SQ BL BR TR DF DL
+)m(
+rorrE
+yrotcejarT
+Article https://doi.org/10.1038/s41467-025-58624-6
+0 10.0 20.0 30.0 150.0 160.0 170.0 180.0 Time (s)
+f g LSTM DCNN AIL-KE
+Fig.2|Trajectoryestimationduringstrengthtraining.aConfusionmatrix Short-TermMemory,DCNNstandsforDilatedConvolutionalNeuralNetwork,and
+acrossthefollowingstrengthtrainingexerciseclasses:BenchPress(BP),Biceps AIL-KEstandsforActivity-In-the-LoopKinematicsEstimator.cOverallvelocityerror
+Curl(BC),SideLateralRaise(LR),ShoulderPress(SP),LatPullDown(LA),Squat acrossexercisesinRMSE.dExampletrajectoryplotintheglobalz-directionfor
+(SQ),BarbellLunge(BL),BarbellRow(BR),TricepsCurl(TR),DumbbellFly(DF), Bicepscurlatanormaltovariablespeeds.eTrajectoryerrorofwristIMUfor
+Deadlift(DL).Unmarkedblackboxesindicate100%accuracy.bOveralltrajectory differentmovementspeedsinRMSE.fVelocityerrorfordifferentmovement
+erroracrossexercisesinRootMeanSquaredError(RMSE).LSTMstandsforLong speedsinRMSE.gTrajectoryerrorfordifferentstrengthtrainingexercises.
+NatureCommunications|( 2025)1 6:3454 4
+
+=== Page 5 ===
+Xsens LSTM DCNN AIL-KE
+)ged(
+rorrE
+elgnA
+tnioJ
+Xsens LSTM DCNN AIL-KE
+No Desk Treadmill
+activity Drilling Work Walking
+)ged(
+rorrE
+elgnA
+tnioJ
+Time (s)
+noitoM
+edutingaM
+)ged(
+rorrE
+elgnA
+)ged(
+b
+9.15
+8.84
+No
+0.97 0.01 0.01 0.01
+Activity
+8 7.83
+17.4%
+1.00 6.47
+6
+1.00
+4
+0.01 0.99
+2
+No Desk Treadmill
+Activity Drilling Work Walking
+c
+Motion Magnitude
+100
+15
+10
+5
+0 40 80
+d
+8
+6
+4
+2
+hturT
+dnuorG
+a
+100%
+Drilling
+Desk
+Work
+Treadmill
+Walking
+0%
+Predicted
+1 2 3 4 5 6 7 8 9 10
+)ged(
+rorrE
+elgnA
+tnioJ
+Article https://doi.org/10.1038/s41467-025-58624-6
+560 600 640
+e Fitted Line
+10 slope=0.017
+slope=0.016
+slope=0.036
+8
+slope=-0.057
+6
+minute
+Fig.3|Shoulderangleestimationduringfunctionalmovement.aConfusion changes(inMotionMagnitude)andangleerrorsfordifferentapproaches.dAngle
+matrix.bOverallangleerrorinRootMeanSquaredError.Xsensrepresentsjoint errorfordifferentactivities.eRootMean-SquareErrorsforIMU-basedshoulder
+angleoutputfromitsproprietarysensorfusionalgorithm.LSTMstandsforLong jointanglesover10minutes.Thefittedlines(dottedlines)representlinearfits
+Short-TermMemory,DCNNstandsforDilatedConvolutionalNeuralNetwork,and across10minutesofthetrial.
+AIL-KEstandsforActivity-In-the-LoopKinematicsEstimator.cPlotofmotion
+NatureCommunications|( 2025)1 6:3454 5
+
+=== Page 6 ===
+Article https://doi.org/10.1038/s41467-025-58624-6
+calculated the angular difference between the chest and left/right IMUsinthiscase).WealsoshowthatexpandingthesizeoftheDCNN
+upperarmsusingtheanglesdirectlyoutputfromtheXsens’proprie- by making the DCNN layer deeper did not enhance model perfor-
+taryfilters. mance,suggestingthattheadditionalclassificationinformationhelps
+Overall,AIL-KE achieved anRMSEof 6:5°,whichwasaveraged improvemodelperformance(seeSupplementaryTablesS4andS5for
+acrossallparticipantsthroughLOOCVfrombothshoulders,compared moreinformation).
+toDCNNwith7:83°,LSTMwith9:15°,andXsenswith8:84°.AIL-KE The results suggest that aggregating classification information
+generatedthebestperformance,withtheangularerrorbeing17.4%, alsohelpsreducelong-termdrift,whichisanactivechallengeinthe
+29.3%, and 26.8% lower thanDCNN, LSTM, and Xsens, respectively, field34,35. Our results showed Root Mean Squared Differences of <1°
+highlightingtheeffectivenessofourapproachinreducingangleesti- betweenthefirstandthelastminutes,withanetnegativelysloped
+mationerrors.TheRMSEinEuleranglerepresentationisalsotabulated RMSEtrendline,representingnear-zerodriftover10minutes.Previous
+inSupplementaryTableS8.Wefurtherfoundthattheimprovementof studieshaveexploredtraditionalfiltering-basedapproachesincluding,
+AIL-KEoverDCNNwasconsistentacrossdifferentnumbersofstacks complementaryfilterandKalmanfiltertoreducelong-termdriftbut
+for both the left and right shoulders (Supplementary Table S5). mainlyfocusedonlower-limbjointangleestimation34,35,orsimulations
+Numericaldetailsregardingtheperformanceofallthemodelstested using a robotic arm36. A previous study on lower-limb joint angle
+are tabulated in Supplementary Table S3, which also includes the estimation conducted 10-minute trials and obtained linear fits to
+results of another popular machine learning model, Transformers. RMSEs overtime with slopes of(cid:3)0:14 to +0:17°=min33.The study
+Figure3cdepictsatime-serieserrorplotfromarepresentativeparti- reportedthatthisresultwasonparwiththeresultobtainedfromthe
+cipant.ThefirstrowinFig.3cshowsatime-seriesmotionmagnitude proprietaryfilterfromXsens.Inourcase,theproprietaryfilterfrom
+profile,whichiscalculatedbyfindingtheangulardistance25,31between Xsens also had a trendline slope less than 0:1°, which aligns with
+the shoulder kinematics in the first time frame and those in con- resultsfromthepreviousstudy.However,itdemonstratederrorvalues
+secutivetimeframes(seeMethods:Orientationmagnitudecalculation morethantwiceaslargeasAIL-KEacrossthetrial.Theseresultssug-
+formoredetail). gestthatourmethodisbothaccurateandrobusttodriftoverthespan
+We further analyzed the errors in joint angles during different of10minutes,butfurtherworkisneededtounderstandtheperfor-
+functional activities (Fig. 3d). The RMSE when the misclassification mance over hoursor days. Forexample, while a robotic armis not
+happenedwas6:36°,comparedtotheoverallRMSE,whichwas6:50°. sensitive to sources of error inherent to a human arm such as the
+AIL-KE demonstrated the lowest error for all functional activities relative movement of anatomical structures (e.g., skin-to-bone dis-
+comparedtotheotherapproacheswithastandarddeviationof0:25° placement),this approach may allow for rapidcharacterization and
+acrossactivities. iteration of IMU-based estimation methods under idealized
+Further analysis on how the model’s estimation performance conditions36.
+changesovertime,knownaslong-termdrift,ispresentedinFig.3e. Accurateestimationofhumanmovementischallengingbecause
+Ourapproachdemonstratedanegativetrendlineslopefromthefirst thesameactivitycanbedonewithdifferentmovementpatterns37.The
+minutetothelastminuteof−0.057°/minwiththelowestjointangle standard deviations of AIL-KE’s errors across test set participants,
+errors across all minutes. Other approaches demonstrated positive whichwere6:65(cid:2)10(cid:3)5mforExerand0:24°forInd,werelowerthanthe
+trendlineslopessmallerthan0.04°/min,butwithhigherjointangle other learning-based approaches used for comparison (see Supple-
+errors. mentaryTablesS1andS3formoredetail).Thelowerstandarddevia-
+Likethestrengthtrainingdata,weassessedthesensitivityofAIL- tions imply that there is less variability in estimation performance
+KE to individual variability for joint angle estimation. The standard across unseen participants. The Normalized Root Mean-Square
+deviationvaluesoftheerrorsofourgeneralizedmodelacrossparti- Deviation(NRMSD)acrossparticipantsontestdata,whichevaluates
+cipantswereaslowas0:24°(moredetailinSupplementaryTableS3). thedispersionofdataacrossparticipants,wasthelowestwithAIL-KE
+Inanadditionalexperimentinvestigatingtheeffectofshiftsinsensor for both trajectory and angle estimation (detail in Supplementary
+locationduringsimulatedindustrialassemblywork,wefoundthatthe InformationTablesS1andS3).Inparticular,duringExer,thewristIMU
+averageerrorremainsbelow6:8° withupto13° ofsensorrotation NRMSDwaslessthan4%fortrajectoryandvelocityestimates.Simi-
+(SupplementaryFig.S9). larly,duringInd,theNRMSDaveragedacrossbothshouldersforjoint
+angleestimateswas alsolessthan 4%.AnNRMSDvalue closerto0
+Discussion indicatesthattheerrorsacrossparticipantsaresimilar.Previousstu-
+This paper presents a behavioral constraint-based machine learning diesconsideredNRMSDsvaluesoflessthan4%asacceptableagainst
+model,AIL-KE,whichaggregatesactivityclassificationinformationto individual variability for joint angle estimation38,39. Moreover, the
+improvekinematicsestimationaccuracy.AIL-KEoutperformedother NRMSDsforAIL-KEestimateswerelessthanhalfofthosefromDCNN.
+learning-based approaches used for comparison, including an Furthermore,priorworkonangleestimationonthesameparticipants
+equivalent model architecture without the feature aggregation net- across days using IMUs reported an NRMSD of 10% for the simple
+work, for applications in strength training (Exer) and industrial flexion/extension tasks and slightly under 20% for complex tasks40.
+work(Ind). Comparedtothis,theNRMSDvalueofAIL-KEacrossparticipantsis
+Our approach achieved enhanced kinematics tracking perfor- considered low; albeit examining different joint angles (shoulder
+mance by incorporating activity classification features as additional angles in this study vs. thorax and lumbar spine angles in Graham
+behavioralconstraints.Thestrategyofusingadditionalinformationto etal40.).WhiletheseresultssupportthepotentialuseoftheAIL-KE
+improve the performance of a machine-learning model has been across individuals without concerns of sensor-to-segment misalign-
+widelyadoptedinvariousstudies32,33.Withinthefieldofmotionkine- ment,weexpectthereisapossibilitytofurtherimproveaccuracyby
+maticsestimation,studiesusedadditionalsensorymodalities,suchas using sensor-to-segment calibration approaches proposed by other
+full-body IMUs or visual information, to enhance model studies41,42.
+performance32,33.Whileeffective,thisapproachrequiresaddingaddi- The approach introduced in this paper has a broad range of
+tionalsensors,whichlimitstheirpracticaluseintherealworld.The practicalapplicationswiththepotentialforutilizationincommercial
+main advantage of our approach is that the additional information wearabledevices.Asanexample,therangeofmotionandmovement
+doesnotcomefromextrasensoryinputs.Rather,classificationinfor- velocityofabodypartliftingweightsareimportantinstrengthtrain-
+mationwasderivedusingdatafromaminimalnumberofIMUs(two ing as they provide information regarding injury risk and muscle
+NatureCommunications|( 2025)1 6:3454 6
+
+=== Page 7 ===
+Article https://doi.org/10.1038/s41467-025-58624-6
+development19,30.WhileothergroupshavestudiedwearableIMUsto thecornerstodeterminetheorientationoftheIMU(Supplementary
+measuremovementvelocityduringstrengthtraining,therearechal- Fig.S1).IMUandOMCdataweretime-synchronizedusinga5Vanalog
+lengesduetoinaccuratevelocityestimates.Forexample,inonestudy, triggersignal.A5V signalwasalsousedtoobtainstartandendtimes
+moderate to weak correlations of r=0:62 for mean velocity and foreachexercise,whichwereusedforlabelingthedatasetpriorto
+r=0:49 for peak velocity compared to ground truth during bench classification.
+pressexercisewerefound43.Here,weshowedthatAIL-KEresultsin Data were collected on fifteen healthy participants (3 females;
+strongcorrelationsofr=0:81andr=0:88formeanandpeakvelocity, 28:1±5:6years)withtwoIMUs,oneplacedontheirchestandoneon
+respectively, during bench press exercise across movement speeds theirrightwrist,tomeasuretheir3Dmovementvelocitiesandtrajec-
+(see Supplementary Figs. S5 and S6). Velocity measures are also tories(SupplementaryFig.S1).Participantsperformedthefollowing
+importantforestimatingmusclestrength,whichiscloselyrelatedto strength training exercises, each for 12 repetitions, in randomized
+physicalfunction,riskofinjury,andneuromuscularfatigue19,29,44.The order:BenchPress,BicepsCurl,SideLateralRaise,ShoulderPress,Lat
+improvedestimatesfromAIL-KEmayenablefutureworktoaccurately PullDown,Squat,BarbellLunge,BarbellRow,TricepsCurl,Dumbbell
+estimate muscle strength changes using IMUs. Future work should Fly, and Deadlift (Supplementary Fig. S2). The four sets were per-
+include rigorous biomechanical analysis45 to evaluate AIL-KE for formedatfourdifferentself-selectedmovementspeeds,normal,slow,
+sports-relatedapplications. fast,andvariable.Sixparticipantshadonetothreeyearsofexperience
+Another application investigated in this paper was estimating instrengthtraining,anothersixhadaboutoneyearorlessofexperi-
+jointkinematicsandpostureduringoverheadindustrialwork.Over- ence,andtheremainingthreehadnopriorstrengthtrainingexperi-
+headtasks inwhich the arm is elevated for extended durations are ence. While we provided instructions on performing the exercises
+knowntobeasignificantcontributingfactortowork-relatedmuscu- before data collection, we did not verify whether the participants
+loskeletaldisorders,suchasshoulderdisorder46,47.Weevaluatedthe executed the strength training exercises with the correct form. We
+performance of AIL-KE for longer than 10-minutes and found that asked participants to place the sensors themselves and place them
+shoulderangleestimationaccuracyduringthelastminutewasatleast tightlytominimizemovementduringactivities.Datawerecollectedin
+20%betterthanwiththeotherapproachesweinvestigated(seeSup- accordancewithHarvardInstitutionalReviewBoard(ProtocolIRB-20-
+plementaryTableS3formoredetail).Overall,theRMSEofAIL-KEat 1847).Weuseddatafrom11randomlyselectedparticipantsfortraining
+theshoulderjointwaslessthan6°.Giventhattherangeofjointangles and one participant for validation of the classification model. Data
+fortypicalhand/toolpositioningsduringoverheadworkisreportedto fromtheremainingthreeparticipantswereusedasthetestdatasetto
+be70°47,thisperformancecorrespondstolessthan10%erroracross evaluatetheperformanceofthemodel.
+therangeofmotion.Ourmethodprovidesaccurateinformationon
+shoulder elevation angles of an individual against long-term drift, Participant&datacollectionforInd
+whichisessentialforergonomicsapplications,suchasriskassessment Sixparticipants(allmales;30±5:5 years)worethreeIMUs,oneon
+andinjuryprevention46,47.Thisinformationcouldfurtherbeincorpo- theirchestand another two on theirrightand left upper arms, to
+ratedintowearableassistiverobots47. measureshoulderjointangles.Eachparticipantperformed5setsof
+Ourpaperhasseveraldirectionsforfuturework.First,theeffect overheaddrilling,deskwork(suchastypingand note-taking),and
+ofthecomplexityoftheACarchitectureontheperformanceofAIL-KE treadmillwalking(SupplementaryFig.S4).Eachtaskwas3minutes.
+hasnotyetbeenevaluated.Furtherinvestigationisneededtodeter- Wehave“noaction”asanadditionallabeltoindicateanyactivities
+minewhetherasmallerACmodelarchitecturecanachievethesame performedtransitioningamongthethreetasks.Thetimedurationof
+levelofaccuracy.Second,wedidnotevaluateAIL-KEonIMUsfrom “Noaction”betweentaskswasdecidedbyeachparticipantforeach
+differentvendors.BecauseeachIMUhasuniquecharacteristics,such trial, ranging between 60seconds to 90seconds. We used Xsens
+assensorbiasandnoise48,applyingapre-trainedAIL-KEmodeltodata MTI-3IMUscollectedat100Hz.EachIMUwasmountedonacustom
+from different IMUs may result in degraded performance. Future 3D printed case with four motion capture markers on each of the
+researchshouldevaluatetheperformanceofAIL-KEacrossIMUsfrom corners (Supplementary Fig. S3). IMU and OMC data were time-
+differentmanufacturers.Ifperformancedegradationisobservedwith synchronized using a 5V analog trigger signal. This trigger also
+different IMU products, transfer learning methods could be a pro- providedtimesforthestartandendofafunctionalactivity,which
+misingapproachtomitigatethisissue49,bypretrainingAIL-KEwithone wereusedforclassification.Datawerecollectedinaccordancewith
+typeofIMUandfine-tuningwithIMUsfromadifferentvendor. the Harvard Institutional Review Board (Protocol IRB19-1321). We
+This paper presents an approach, the AIL-KE, that accurately performedLOOCVtoassessthegeneralizabilityacrossparticipants.
+estimateshumankinematicsusingtwoIMUs.Itconsistsofanend-to- Thetrainingdataincludedfourparticipants,whilethevalidationdata
+end machine learning model incorporating human behavioral con- includedoneperson.
+straints for enhanced kinematics estimation by leveraging limited
+patternsandreducedvariabilityinmotionduringspecificactivities. IMUandOMCcoordinateframedefinition
+Our results show thatbyincorporating humanactivity information, ToensureafaircomparisonbetweenIMUandOMCmeasurements,it
+AIL-KEcouldestimatethemovementkinematicsand3Djointangles iscrucialtounderstandandalignthecoordinateframesofthetwo
+moreaccuratelythanthesamemodelwithoutactivityinformation.We systems. As illustrated in Supplementary Fig. S10, the IMU sensor
+expectthatAIL-KEwillbealsocompatiblewithotherlearning-based frame(SF)isdefinedbythephysicalplacementofthesensingchip
+partial-body18,19andfull-body16,17kinematicsestimationapproachesto withintheIMU,whileitsinertialframe(IF)isdefinedbythedirectionof
+furtherenhanceestimationperformance. gravityandtheEarth’smagneticNorth.Conversely,thebodyframeof
+OMC(BF)isdefinedbyfourmarkersrigidlymountedontheIMUcase,
+Methods anditslabframe(LF)isdefinedusinganOMCL-framecalibrationtool
+Participant&datacollectionforExer thatwasplacedflatonthegroundatthestartofthedatacollection.
+TheIMUs(BoschBNO0030,Bosch,Germany)wereconnectedtothe The relationship between the sensor and inertial frames of the
+Beaglebone Black (TexasInstrument, USA) to measure 3D accelera- IMU,andthebodyandLFsofOMCcanbemathematicallyexpressedas
+tion,3Dangularvelocity,and3Dorientation(representedas4Dunit follows:
+quaternions) data at 100Hz. The quaternion values were obtained
+fromtheinternalKalmanfilteroftheIMUs.EachIMUwasmountedon
+acustom3Dprintedcasewithfourmotioncapturemarkersoneachof
+qL
+B
+F F=qL
+lF
+FqI
+S
+F
+F
+qS
+B
+F
+F
+ð1Þ
+NatureCommunications|( 2025)1 6:3454 7
+
+=== Page 8 ===
+Activity
+DC DC DC
+Class
+DC DC DC Velocity
+DC DC DC Trajectory
+Kinematics Regressor (KR)
+Kinematics
+Regressor
+(KR)
+where q represents the unit quaternion of the coordinate frame in DetaileddescriptionofAIL-KE
+subscript,expressedinthecoordinateframeinsuperscript.Specifi- We present an end-to-end machine learning model incorporating
+cally,qLF andqIF correspondtotheOMCandIMUorientationmea- human behavioral constraints for enhanced kinematics estimation
+BF SF
+surements, respectively. The term qLF and qSF are the unknown usingIMUsensors.Inthisstudy,weusedtwoIMUsensors,butthe
+IF BF
+misalignmentsbetweentheIMUandOMCcoordinateframes.These numberofIMUsensorsforAIL-KEisnotlimited.Westudytwoappli-
+misalignments were determined using an optimization-based frame cations for AIL-KE: velocity and trajectory estimation (Fig. 4a) and
+alignmentmethodpresentedinourpriorwork25. 3-dimensionaljointangleestimation(Fig.4b).Althoughinthispaper,
+For Ind, the 3D shoulder orientations are calculated using the we used separate models for trajectory and joint angle for specific
+followingequation: purposes(i.e.,ExerandInd),thesemodelscanbemergedtoestimate
+allmetricsinanend-to-endmanner.Thetrajectoryestimationmodel
+q shoulder=qt a o r r m so=ðq torso Þ*q arm ð2Þ (Fig.4a)usedglobalaccelerations,angularvelocities,andquaternions
+fromIMUs-oneonthechestandtheotheronthewrist—asaninputto
+WhereðqÞ*denotestheconjugateofquaternionq,andq torsoandq
+arm
+predict1)AC:exerciseclassfc
+1
+,:::,c
+t
+gand2)KR:velocityV=fv
+1
+,:::,v
+t
+g
+represent the unit quaternions of the torsoand upper arm, respec- and trajectory Φ=fφ,:::,φg in each of the IMU global frames for
+1 t
+tively,asmeasuredbyeithertheIMUorOMC.Thisequationassumes everytimeframet=1,…,T,whereTisthetimelengthofeachtrial.The
+thatq torsoandq armareexpressedinthesamecoordinateframe(IMU joint angle estimation model (Fig. 4b) used global accelerations,
+InertialFrameinthiscase). gyroscopes, and quaternions from the IMUs on the chest and each
+Raw
+IMU
+Signal
+a
+Activity
+DC DC DC
+Class
+Orientation
+DC DC DC
+Errors
+c
+Feature Aggregation Network
+1x1
+conv
+Raw
+IMU
+Signal
+Article https://doi.org/10.1038/s41467-025-58624-6
+b
+Kinematics Regressor (KR)
+Orientation
+d
+Dilated Convolution (DC)
+...
+k=4 Activity
+ReLU + 1x1
+conv
+k=2 (AC)
+k=1
+x x x x x x x x x x x x x
+t=1 t=2 t=3 t=4 t=5 t=6 t=7 t=8 t=9 t=10 t=11 t=12 t=13
+e
+Kinematics Regressor (KR)
+nthStack nthStack
+...
+Feature Aggregation Network (FAN)
+layer
+kth
+... layer
++
+2nd
+Output of FAN k-1th
+layer
+layer
+1st ...
+layer
+Fig.4|Detailedviewofourmodel.aOverviewschematicofhowinformation regioninredshowshowthefeaturesareoperatedindilatedconvolution.
+fromActivityClassifier(AC)isincorporatedwithKinematicsRegressor(KR)for dDetailedviewofFeatureAggregationNetwork(FAN).1×1convrepresentsthe
+velocityandtrajectoryestimation.bOverviewschematicofhowinformationfrom one-by-oneconvolutionlayer,andReLUrepresentstheRectifiedLinearUnit.
+ActivityClassifier(AC)isincorporatedwithKinematicsRegressor(KR)forjoint eDetailedviewofhowfeaturesfromACareincorporatedwithKRthroughFAN.
+angleestimation.cDetailviewofDilatedConvolutionlayers(DC).Thehighlighted
+NatureCommunications|( 2025)1 6:3454 8
+
+=== Page 9 ===
+Article https://doi.org/10.1038/s41467-025-58624-6
+shouldertopredictactivityclassfc,:::,cgforAC,and2)quaternion and KR were trained together for another 500 epochs. We used
+1 t
+angle errors fe,:::,eg for KR at every time frame t=1, ...,T. The 4stacksofACandKR.Thehiddendimensionwassetto64foralllayers,
+1 t
+outputofKRisthenmultipliedbyquaternionsobtainedthroughinitial includingDCandFAN.Themaximumdilationrateforeachstackwas
+IMUcalibration.AIL-KEiscomposedofstackedDilatedConvolutional setto29=512.WeusedtheAdamoptimizerwithalearningrateof10(cid:3)4
+NeuralNetworks,showninFig.4a,bwithDC(Fig.4c)50,51andFeature andweightdecayof10(cid:3)7.Theseparametersweredeterminedbygrid
+Aggregation Network or FAN (Fig. 4d). Each Dilated Convolutional searches.
+Neural Network, depicted in Fig. 4c, was composed of dilated 1-d
+convolutions52withadilationrateof20,21,22,...,2 d andkernelsize3. Existingmodelsforcomparison
+This was followed by the Rectified Linear Unit (ReLU) activation We compared the performance of the AIL-KE approach against the
+functionanda1×1convolution.Theoutputofthe1×1convolutionis followingmodels:
+then summed with the input as a means of skip connection. The (cid:129) DCNN:WeusedthesameDCNNstructurewithoutFAN,i.e.,we
+stackeddilatedconvolutionstructureallowsthemodeltotaketem- only used KR. The model architecture is shown in Supplemen-
+poraldatawithvariabletimelengthswhilethemaximumdilationrate, taryFig.S7.
+i.e., 2 d must be smaller than the total time length of the one data (cid:129) Long short-term memory (LSTM): LSTM is a Recurrent Neural
+sample,T. Networkarchitecturethathasinput,forget,andoutputgatesin
+FANisastructurethatprovidesactivityclassificationinforma- eachofitsnodes.Theforgetgatedetermineswhatinformationto
+tiontoKR(Fig.4d).Thelasthiddenlayer(h)ofeachDCNNinACwas retain or discard by applying a sigmoid function, which either
+i
+processed usingFAN, which was summed with the outputof each multipliesbyafactorof1or0.Thesegatesallowthenetworkto
+dilatedconvolutionalneuralnetworkinKR.FANwascomposedof handlelong-rangedependenciesthatarisefromthevanishingand
+point-wiseconvolutionblocksandReLU.Eachh wasfedintoaone- exploding gradient issues. LSTM structures are extensively
+i
+by-one convolution layer, followed by ReLU. The output was sum- utilized for time-series data processing53–55, particularly for
+medwithh asaresidualstructure,suchthatFðhÞ+h,whereFðhÞisa estimating position and angle based on IMU data. Hyperpara-
+i i i i
+1×1 convolution. This was further processed by an additional 1×1 metersoftheLSTM,suchasthenumberoflayersandfeaturesize,
+convolutionlayertoreducedepthsizetofitintoeachDCNNinKR. were found by grid searches. We used a 3-layer LSTM with a
+ForeverylayerofDCNN,weused1.L AC:theCategoricalCross- hiddenfeaturesizeof128,followedbytwolinearlayers,eachwith
+entropylosstominimizetheclassificationerrorbetweengroundtruth ahiddenfeaturesizeof128.
+andpredictedforAC,and2.L KR:theMeanSquaredErrorfunctionto (cid:129) Transformer:TheTransformerarchitecturehasbeenwidelyused
+minimizetheerrorbetweenestimatedandgroundtruthvelocitiesand fortraininglargelanguagemodels56.Itisbasedonthescaleddot-
+trajectories or joint angles for KR. The integrated loss equation is product attention and self-attention mechanism, offering an
+shownasfollows: alternative to traditional temporal models such as Recurrent
+NeuralNetworks.Thehyperparameters,includingthenumberof
+XS layersandfeaturesize,weredeterminedthroughgridsearches.
+L AIL(cid:3)KE= ðL AC+L KR Þ ð3Þ WeusedtheencoderpartoftheTransformer,consistingofatwo-
+s=1
+layer Transformer with a hidden feature size of 128 and an
+attentionheadsizeof8.FollowingtheTransformerencoder,we
+XC
+addedtwofullyconnectedlayerswithahiddenfeaturesizeof256.
+L AC= (cid:3) y ilogðby i Þ ð4Þ The estimation results were tabulated in Supplementary
+i=1 TablesS1–S3.
+(cid:129) Xsens proprietary filter (Xsens): For angle estimation, we com-
+L KR=
+N
+1
+XN (cid:2)
+V(cid:3)V b
+(cid:3)
+2 +
+N
+1
+XN
+ðΦ(cid:3)Φb Þ 2 ð5Þ p
+X
+a
+s
+r
+e
+e
+n
+d
+s’
+r
+p
+e
+r
+s
+o
+u
+p
+lt
+r
+s
+ie
+f
+t
+r
+a
+o
+r
+m
+ys
+o
+e
+u
+n
+r
+so
+m
+r
+o
+f
+d
+u
+e
+si
+l
+o
+w
+n
+it
+a
+h
+lg
+t
+o
+h
+r
+e
+ith
+jo
+m
+in
+.
+t
+X
+a
+s
+n
+e
+g
+n
+l
+s
+e
+i
+o
+s
+u
+o
+t
+n
+p
+e
+ut
+o
+f
+f
+ro
+th
+m
+e
+i=1 i=1
+world’sleadingIMUcompaniesanditsproprietaryalgorithmis
+Wheresissthstackgiventhats2f1,2,...,Sg,andNisthenumberof generally considered as the state-of-the-art. Joint angles were
+samples.VandΦarethegroundtruthvelocityandtrajectorythatcan obtainedbycalculatingtherotationmatricesbetweenchestand
+beobtainedfrommotioncapturecameras,andV
+b andΦb
+arethepre- shoulderIMUs.
+dictedvelocityandtrajectorybasedonIMUdata.
+Forjointangleestimation,weusedthefollowinglossfunctionfor Orientationcalculations
+KRtominimizeangularerror,basedonthequaternioninnerproduct. Inthesimulatedindustrialworkexperiment,thetime-seriesmotion
+magnitudewasdefinedastheangulardistancebetweentheshoulder’s
+L KR= N 1 XN arccos (cid:2)(cid:4) (cid:4) (cid:4)q gt (cid:2)q pred (cid:4) (cid:4) (cid:4) (cid:3) ð6Þ s o u ri b e s n e t q a u ti e o n n tt a im t t e h f e ra i m ni e t s ia , l qt a t o r i r m m so ,t e .S f p ra e m ci e fi , ca q l t a l o y r r m , so t ,0 h , e a m n o d tio it n s m or a i g e n n i t t a u t d io e n at a a t
+i=1 specifictimeframe,θ t,iscalculatedusing
+Whereq isthegroundtruthquaternionobtainedfromtheOMCand
+gt
+q
+pred
+isthequaternionobtainedafternormalizingthemodel-predicted θ t=2(cid:2)arccosðReðqt
+a
+o
+r
+r
+m
+so
+,t
+ðqt
+a
+o
+r
+r
+m
+so
+,0
+Þ*ÞÞ ð7Þ
+orientation.Thislossisreportedtohavenumericalissuesasthereisa
+discontinuousgradientintheinterval(−1,1)atpoint0,whichresultsin whereReðqÞdenotestherealpartofthequaternionq.
+extreme values at the points where arccosðjq (cid:2)q jÞ!0. There- Similarly,thetime-serieserrorprofileforshoulderorientationwas
+gt pred
+fore,weusedagradientclippingapproach,wheretheerrorderivative calculated as the angular distance between the estimated shoulder
+is clippedtoathresholdduringbackpropagationthroughthedeep orientationandthegroundtruth.Specifically,theorientationerrorata
+learningnetwork,andtheclippedgradientsareusedtoupdatethe specifictimeframe,ψ t,iscalculatedas
+weights.
+ψ t=2(cid:2)arccosðReðq
+est,t
+ðq
+OMC,t
+Þ*ÞÞ ð8Þ
+Modeltrainingstrategy
+WefirsttrainedACforthefirst500epochs.OnceACwastrained,we where q est,t represents the shoulder orientation estimated by the
+fixedtheweightsofACandthentrainedKRfor1000epochs.Then,AC machinelearningmodelattimeframe,t,andq OMC,trepresentsthe
+NatureCommunications|( 2025)1 6:3454 9
+
+=== Page 10 ===
+Article https://doi.org/10.1038/s41467-025-58624-6
+groundtruthorientationcapturedbytheOMCsystem.Thisequa- 14. Hidalgo,A.F.,Lora-Millán,J.S.&Rocon,E.IMU-basedkneeangle
+tiondiffersfromEq.6asitcalculatesangulardistanceatspecific estimationusinganextendedKalmanfilter.In:201941stAnnual
+time frames, while Eq. 6 is a loss function for model training, InternationalConferenceoftheIEEEEngineeringinMedicineand
+leveragingnumericalsimplificationsliketheabsoluteoperationfor BiologySociety(EMBC),pp.570–573(2019,July).
+stability. 15. Shen,S.,Wang,H.&RoyChoudhury,R.IamasmartwatchandIcan
+trackmyuser’sarm.In:Proceedingsofthe14thannualinternational
+Statisticalanalysisonpeak-to-peakerrors conferenceonMobilesystems,applications,andservices,pp.
+Wecalculatedthepeak-to-peakdistances,i.e.,thedistancebetween 85–96(2016,June).
+themaximumandtheminimumpeaks,ofthegroundtruthandAIL- 16. Yi,X.etal.PhysicalInertialPoser(PIP):physics-awarereal-time
+KE,followedbycalculatingtheRMSEbetweenthepositionsofthe humanmotiontrackingfromsparseinertialsensors.In:Proceedings
+groundtruthandAIL-KEpredictions.Then,thesameoperationwas oftheIEEE/CVFconferenceoncomputervisionandpatternrecog-
+appliedfor DCNN and LSTM. We conducted theMann–Whitney U nition,pp.13167–13178(2022).
+test to determine statistical significance between the models, i.e., 17. Jiang,Y.etal.Transformerinertialposer:real-timehumanmotion
+AIL-KEvs.DCNN,LSTMvs.DCNN,andAIL-KEvs.LSTM,usingasig- reconstructionfromsparseIMUswithsimultaneousterraingen-
+nificancelevelof0.05. eration.In:SIGGRAPHAsia2022ConferencePapers,pp.1–9(2022,
+November).
+Dataavailability 18. Feigl,T.etal.RNN-aidedhumanvelocityestimationfromasingle
+Alldatasupportingthefindingsofthisstudyareavailablewithinthe IMU.Sensors20,3656(2020).
+articleanditssupplementaryfiles.Anyadditionalrequestsforinfor- 19. Wei,W.,Kurita,K.,Kuang,J.&Gao,A.Real-timelimbmotion
+mationcanbedirectedtoandwillbefulfilledbythecorresponding trackingwithasingleIMUsensorforphysicaltherapyexercises.In:
+author.Sourcedataareprovidedwiththispaper. 202143rdAnnualInternationalConferenceoftheIEEEEngineering
+inMedicine&BiologySociety(EMBC),pp.7152–7157(2021,
+Codeavailability November).
+Allcodeforthisworkwillbemadeavailablefromthecorresponding 20. Fischer,C.,TalkadSukumar,P.&Hazas,M.Tutorial:implementinga
+authoruponrequest. pedestriantrackerusinginertialsensors.IEEEPervasiveComput.12,
+17–27(2013).
+References 21. Arens,P.etal.Real-timegaitmetricestimationforeverydaygait
+1. Wang,L.,Hu,W.&Tan,T.Recentdevelopmentsinhumanmotion trainingwithwearabledevicesinpeoplepoststroke.Wearable
+analysis.PatternRecognit.36,585–601(2003). Technol.2,e2(2021).
+2. Carling,C.,Bloomfield,J.,Nelsen,L.&Reilly,T.Theroleofmotion 22. Wagstaff,B.,&Kelly,J.LSTM-basedzero-velocitydetectionfor
+analysisinelitesoccer.Sport.Med.38,839–862(2008). robustinertialnavigation.In:2018IEEEInternationalConferenceon
+3. Menache,A.Understandingmotioncaptureforcomputeranima- IndoorPositioningandIndoorNavigation(IPIN),pp.1–8(2018,
+tionandvideogames.Ch.1(MorganKaufmann,2000). September).
+4. VanderKruk,E.&Reijne,M.M.Accuracyofhumanmotioncapture 23. Lee,C.S.&Elgammal,A.Coupledvisualandkinematicmanifold
+systemsforsportapplications;state-of-the-artreview.Eur.J.Sport modelsfortracking.Int.J.Comput.Vis.87,118–139(2010).
+Sci.18,806–819(2018). 24. Yao,A.,Gall,J.&VanGool,L.Coupledactionrecognitionandpose
+5. Morrow,M.M.,Lowndes,B.,Fortune,E.,Kaufman,K.R.&Hallbeck, estimationfrommultipleviews.Int.J.Comput.Vis.100,
+M.S.Validationofinertialmeasurementunitsforupperbody 16–37(2012).
+kinematics.J.Appl.Biomech.33,227–232(2017). 25. Jin,Y.etal.Adata-basedapproachtosimultaneouslyalignlocal
+6. Johansson,D.,Malmgren,K.&AltMurphy,M.Wearablesensorsfor andglobalframesbetweenanInertialMeasurementUnit(IMU)and
+clinicalapplicationsinepilepsy,Parkinson’sdisease,andstroke:a anopticalmotioncapturesystem.In:20229thIEEERAS/EMBS
+mixed-methodssystematicreview.J.Neurol.265,1740–1752 InternationalConferenceforBiomedicalRoboticsandBiomecha-
+(2018). tronics(BioRob),pp.1–8(2022,August).
+7. Chen,X.&Davis,J.Cameraplacementconsideringocclusionfor 26. Thompson,S.W.etal.Anovelapproachto1RMpredictionusingthe
+robustmotioncapture.Comput.Graph.Lab.Stanf.Univ.Tech.Rep. load-velocityprofile:acomparisonofmodels.Sports9,88(2021).
+2,2(2000). 27. García-Ramos,A.,Pestaña-Melero,F.L.,Pérez-Castilla,A.,Rojas,F.
+8. Porciuncula,F.etal.Wearablemovementsensorsforrehabilitation: J.&Haff,G.G.Meanvelocityvs.meanpropulsivevelocityvs.peak
+afocusedreviewoftechnologicalandclinicaladvances.PMR10, velocity:whichvariabledeterminesbenchpressrelativeloadwith
+S220–S232(2018). higherreliability?J.StrengthCond.Res.32,1273–1279(2018).
+9. Ahmad,N.,Ghazilla,R.A.R.,Khairi,N.M.&Kasi,V.Reviewson 28. Akoglu,H.User’sguidetocorrelationcoefficients.Turk.J.Emerg.
+variousInertialMeasurementUnit(IMU)sensorapplications.Int.J. Med.18,91–93(2018).
+SignalProcess.Syst.1,256–262(2013). 29. Halson,S.L.Monitoringtrainingloadtounderstandfatigueinath-
+10. El-Gohary,M.&McNames,J.Shoulderandelbowjointangle letes.SportsMed.44,139–147(2014).
+trackingwithinertialsensors.IEEETrans.Biomed.Eng.59, 30. Weakley,J.etal.Velocity-basedtraining:fromtheorytoapplication.
+2635–2641(2012). StrengthCondition.J.43,31–49(2021).
+11. Brossard,M.,Bonnabel,S.&Barrau,A.DenoisingIMUgyroscopes 31. Huynh,D.Q.Metricsfor3Drotations:comparisonandanalysis.J.
+withdeeplearningforopen-loopattitudeestimation.IEEERobot. Math.ImagingVis.35,155–164(2009).
+Autom.Lett.5,4796–4803(2020). 32. VonMarcard,T.,Henschel,R.,Black,M.J.,Rosenhahn,B.&Pons-
+12. Jiménez,A.R.,Seco,F.,Prieto,J.C.&Guevara,J.Indoorpedestrian Moll,G.Recoveringaccurate3dhumanposeinthewildusingIMUs
+navigationusinganINS/EKFframeworkforyawdriftreductionand andamovingcamera.In:ProceedingsoftheEuropeanConference
+afoot-mountedIMU.In:2010IEEE7thworkshoponpositioning, onComputerVision(ECCV),pp.601–617(2018).
+navigationandcommunication,pp.135–143(2010,March). 33. Trumble,M.,Gilbert,A.,Malleson,C.,Hilton,A.&Collomosse,J.
+13. Schepers,M.,Giuberti,M.&Bellusci,G.XsensMVN:consistent Totalcapture:3dhumanposeestimationfusingvideoandinertial
+trackingofhumanmotionusinginertialsensing.XsensTechnol.1, sensors.InProceedingsof28thBritishMachineVisionConference,
+1–8(2018). pp.1–13(2017,September).
+NatureCommunications|( 2025)1 6:3454 10
+
+=== Page 11 ===
+Article https://doi.org/10.1038/s41467-025-58624-6
+34. AlBorno,M.etal.OpenSense:anopen-sourcetoolboxforinertial- 55. Hur,B.,Baek,S.,Kang,I.&Kim,D.Learningbasedlowerlimbjoint
+measurement-unit-basedmeasurementoflowerextremitykine- kinematicestimationusingopensourceIMUdata.Sci.Rep.15,
+maticsoverlongdurations.J.Neuroeng.Rehabil.19,22(2022). 5287(2025).
+35. Robert-Lachaine,X.,Mecheri,H.,Larue,C.&Plamondon,A.Vali- 56. Wolf,T.Transformers:state-of-the-artnaturallanguageprocessing.
+dationofinertialmeasurementunitswithanoptoelectronicsystem arXivhttps://arxiv.org/abs/1910.03771(2020).
+forwhole-bodymotionanalysis.Med.Biol.Eng.Comput.55,
+609–619(2017). Acknowledgements
+36. El-Gohary,M.&McNames,J.Humanjointangleestimationwith ThisworkwassupportedbytheNationalScienceFoundation[award
+inertialsensorsandvalidationwitharobotrrm.IEEETrans.Biomed. #2236157(C.J.W.)],MassachusettsTechnologyCollaborative,Colla-
+Eng.62,1759–1767(2015). borativeResearchandDevelopmentMatchingGrant,theMoveLab,and
+37. Fetters,L.Perspectiveonvariabilityinthedevelopmentofhuman theHarvardJohnA.PaulsonSchoolofEngineeringandAppliedSci-
+action.Phys.Ther.90,1860–1867(2010). ences(C.J.W.).
+38. Hou,J.etal.Apilotstudyofindividualmuscleforceprediction
+duringelbowflexionandextensionintheneurorehabilitationfield. Authorcontributions
+Sensors16,2018(2016). Conceptualization:D.K.,H.C.,andC.J.W.Methodology:D.K.,Y.J.,H.C.,
+39. Sheng,Y.,Liu,J.,Zhou,Z.,Chen,H.&Liu,H.Musculoskeletaljoint T.J.,Y.M.Z.,D.P.,andC.J.W.Investigation:D.K.,H.C.,Y.J.,T.J.,Y.M.Z.,and
+angleestimationbasedonisokineticmotorcoordination.IEEE C.J.W.Analysis:D.K.,Y.J.,H.C.,K.S.,andC.J.W.Visualization:D.K.,Y.J.,
+Trans.Med.Robot.Bionics3,1011–1019(2021). H.C.,A.F.,K.S.,Writing—originaldraft:D.K.,Y.J.,H.C.,Y.M.Z.,D.P.,K.S.,
+40. Graham,R.B.,Dupeyron,A.&vanDieën,J.H.Between-dayrelia- andC.J.W.,Writing—reviewandediting:D.K.,Y.J.,H.C.,K.S.,andC.J.W.,
+bilityofIMU-derivedspinecontrolmetricsinpatientswithlowback Supervision:C.J.W.Fundingacquisition:C.J.W.
+pain.J.Biomech.113,110080(2020).
+41. Zhu,K.,Li,J.,Li,D.,Fan,B.&Shull,P.B.IMUshoulderangleestimation: Competinginterests
+effectsofsensor-to-segmentmisalignmentandsensororientation Patentsdescribingthealgorithmcomponentsdocumentedinthisarti-
+error.IEEETrans.NeuralSyst.Rehabil.Eng.31,4481–4491(2023). clehavebeenfiledwiththeU.S.PatentOfficebyHarvardUniversity,of
+42. Picerno,P.etal.Upperlimbjointkinematicsusingwearablemag- whichD.K.,H.C.,D.P.,andC.J.W.areinventors.HarvardUniversity
+neticandInertialMeasurementUnits:ananatomicalcalibration enteredintoalicensingandcollaborationagreementwithWurQ.The
+procedurebasedonbonylandmarkidentification.Sci.Rep.9, remainingauthorsdeclarenocompetinginterests.
+14449(2019).
+43. VandenTillaar,R.&Ball,N.Validityandreliabilityofkinematics Additionalinformation
+measuredwithPUSHbandvs.linearencoderinbenchpressand SupplementaryinformationTheonlineversioncontains
+push-ups.Sports7,207(2019). supplementarymaterialavailableat
+44. García-Ramos,A.etal.Feasibilityofthe2-pointmethodfordeter- https://doi.org/10.1038/s41467-025-58624-6.
+miningthe1-repetitionmaximuminthebenchpressexercise.Int.J.
+SportsPhysiol.Perform.13,474–481(2018). Correspondenceandrequestsformaterialsshouldbeaddressedto
+45. Pataky,T.C.,Vanrenterghem,J.&Robinson,M.A.Theprobabilityof ConorJ.Walsh.
+falsepositivesinzero-dimensionalanalysesofone-dimensionalkine-
+matic,forceandEMGtrajectories.J.Biomech.49,1468–1476(2016). PeerreviewinformationNatureCommunicationsthanksFrankWouda,
+46. Seeberg,K.G.V.,Andersen,L.L.,Bengtsen,E.&Sundstrup,E. whoco-reviewedwithAlessandroCastellaz,MathiasBlandeau,andthe
+Effectivenessofworkplaceinterventionsinrehabilitatingmuscu- otheranonymousreviewerfortheircontributiontothepeerreviewof
+loskeletaldisordersandpreventingitsconsequencesamong thiswork.Apeerreviewfileisavailable.
+workerswithphysicalandsedentaryemployment:systematic
+reviewprotocol.Syst.Rev.8,1–7(2019). Reprintsandpermissionsinformationisavailableat
+47. Zhou,Y.M.etal.Aportableinflatablesoftwearablerobottoassist http://www.nature.com/reprints
+theshoulderduringindustrialwork.Sci.Robot.9,eadi2377(2024).
+48. DeAgostino,M.,Manzino,A.M.,&Piras,M.Performancescom- Publisher’snoteSpringerNatureremainsneutralwithregardto
+parisonofdifferentMEMS-basedIMUs.In:IEEE/IONPosition, jurisdictionalclaimsinpublishedmapsandinstitutionalaffiliations.
+LocationandNavigationSymposium,pp.187–201(2010).
+49. Nuckols,R.W.etal.Designandevaluationofanindependent4‐ OpenAccessThisarticleislicensedunderaCreativeCommons
+week,exosuit‐assisted,post‐strokecommunitywalkingprogram. Attribution-NonCommercial-NoDerivatives4.0InternationalLicense,
+Ann.N.Y.Acad.Sci.1525,147–159(2023). whichpermitsanynon-commercialuse,sharing,distributionand
+50. Farha,Y.A.&Gall,J.MS-TCN:multi-stagetemporalconvolutional reproductioninanymediumorformat,aslongasyougiveappropriate
+networkforactionsegmentation.In:ProceedingsoftheIEEE/CVF credittotheoriginalauthor(s)andthesource,providealinktothe
+ConferenceonComputerVisionandPatternRecognition,pp. CreativeCommonslicence,andindicateifyoumodifiedthelicensed
+3575–3584(2019). material.Youdonothavepermissionunderthislicencetoshareadapted
+51. Park,J.,Kim,D.,Huh,S.&Jo,S.Maximizationandrestoration:action materialderivedfromthisarticleorpartsofit.Theimagesorotherthird
+segmentationthroughdilationpassingandtemporalreconstruc- partymaterialinthisarticleareincludedinthearticle’sCreative
+tion.PatternRecognit.129,108764(2022). Commonslicence,unlessindicatedotherwiseinacreditlinetothe
+52. Oord,A.V.D.etal.Wavenet:agenerativemodelforrawaudio.arXiv material.Ifmaterialisnotincludedinthearticle’sCreativeCommons
+http://arxiv.org/abs/1609.03499(2016). licenceandyourintendeduseisnotpermittedbystatutoryregulationor
+53. Kang,B.B.etal.Learning-basedfingertipforceestimationforsoft exceedsthepermitteduse,youwillneedtoobtainpermissiondirectly
+wearablehandrobotwithtendon-sheathmechanism.IEEERobot. fromthecopyrightholder.Toviewacopyofthislicence,visithttp://
+Autom.Lett.5,946–953(2020). creativecommons.org/licenses/by-nc-nd/4.0/.
+54. Kim,D.etal.Eyesarefasterthanhands:asoftwearablerobotlearns
+userintentionfromtheegocentricview.Sci.Robot.4,eaav2949 ©TheAuthor(s)2025
+(2019).
+NatureCommunications|( 2025)1 6:3454 11
+
