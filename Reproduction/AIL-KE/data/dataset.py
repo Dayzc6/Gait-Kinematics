@@ -47,6 +47,7 @@ class IMUDataset(Dataset):
         for i in range(0,len(self.features)-window_size,stride):
             # self.windows.append(self.features[i+window_size-1])
             self.windows.append(self.features[i:i+window_size])
+            # self.windows已经是 (N, window_size, In_dim)
             print(np.shape(self.windows))
 
             # 标签取窗口最后一个时刻的标签（或多数投票）
@@ -67,6 +68,7 @@ class IMUDataset(Dataset):
         # 返回 (特征tensor, 标签tensor)
         # 模型输出应该是：(batch, 3, window_size)（Conv1d保持序列长度）
         # 注意：PyTorch的CrossEntropyLoss需要标签是 1D LongTensor
+        # 
         x=t.FloatTensor(self.windows[index])
         y=t.LongTensor([self.window_labels[index]])
 
@@ -75,27 +77,19 @@ class IMUDataset(Dataset):
         x = x.T
         
         return x, y
-    
-    def dataset_trans(self):
-        data_tensor=t.FloatTensor(self.windows)
-        print(data_tensor.shape)
-        data_len=self.__len__()
-        data_tensor=data_tensor.reshape(data_len,In_dim,1)  # 这个复现项目中的N，C，L都是什么？L是stride吗？还是Batch_size?
-        print(data_tensor.shape)
-        return data_tensor
 
 # 这个函数应该写在class中吗？
 def get_dataloaders(batch_size=100,window_size=512,stride=100):
     # 数据集划分
     # 训练:验证:测试 = 0.7:0.15:0.15
-    dataset=IMUDataset(window_size=window_size,stride=stride).dataset_trans()
+    dataset=IMUDataset(window_size=window_size,stride=stride)
 
     train_size = int(0.7 * len(dataset))
     val_size = int(0.15 * len(dataset))
     test_size = len(dataset) - train_size - val_size
 
     train_dataset, val_dataset, test_dataset = random_split(
-        dataset, 
+        dataset, # 传入Dataset，不是Tensor
         [train_size, val_size, test_size],
         generator=t.Generator().manual_seed(42)  # 固定随机种子，保证可复现
     )

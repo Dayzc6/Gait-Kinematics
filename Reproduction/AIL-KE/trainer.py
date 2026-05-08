@@ -67,7 +67,7 @@ class MainTrain(nn.Module):
         self.model.eval()       # 开启预测模式
         total_loss, correct, total =0,0,0
         with t.no_grad():       # 验证时不计算梯度，省内存
-            for data, target_ac in self.val_loader:
+            for batch_idx,(data, target_ac) in enumerate(self.val_loader):
                 data=data.to(self.device)
                 target_ac=target_ac.to(self.device)
                 output_ac=self.model(data)
@@ -133,7 +133,7 @@ class MainTrain(nn.Module):
 
 if __name__=="__main__":
     # AC模型
-    trainer=MainTrain(model=model_ac,val_loader=val_loader,criterion=criterion)
+    trainer=MainTrain(model=model_ac,train_loader=train_loader,val_loader=val_loader,criterion=criterion)
     trainer.train(AC_epochs)
 
     t.save(model_ac.state_dict(),r'E:\code\3D-position\Reproduction\AIL-KE\state_dict')
@@ -145,6 +145,6 @@ if __name__=="__main__":
         'optimizer_state_dict': trainer.optimizer.state_dict(),
         'train_acc': trainer.history['train_acc'][-1],
     }
-    t.save(checkpoint, r'E:\code\3D-position\Reproduction\AIL-KE\checkpoint')
+    t.save(checkpoint, r'E:\code\3D-position\Reproduction\AIL-KE\checkpoint\checkpoint_ac.pt')
 
     

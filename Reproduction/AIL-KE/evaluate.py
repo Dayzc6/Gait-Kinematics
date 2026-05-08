@@ -10,13 +10,11 @@ model_ac=Model_AC()
 test_loader=data.dataset.get_dataloaders()[2]
 
 # 加载参数
-model_ac.load_state_dict(torch.load(r'E:\code\3D-position\Reproduction\AIL-KE\state_dict'))
+# model_ac.load_state_dict(torch.load(r'E:\code\3D-position\Reproduction\AIL-KE\state_dict'))
 
-# 加载checkpoint
-checkpoint = torch.load(r'E:\code\3D-position\Reproduction\AIL-KE\checkpoint',map_location=DEVICE)
+# 加载checkpoint,这两个二选一
+checkpoint = torch.load(r'E:\code\3D-position\Reproduction\AIL-KE\checkpoint\checkpoint.pt',map_location=DEVICE)
 model_ac.load_state_dict(checkpoint['model_state_dict'])
-torch.optim.Adam(model_ac.parameters(),lr=lr,weight_decay=wd).load_state_dict(checkpoint['optimizer_state_dict'])
-start_epoch = checkpoint['epoch']
 
 def evaluate(model, test_loader, device):
     model.eval()
@@ -31,6 +29,7 @@ def evaluate(model, test_loader, device):
             
             # 这里的cpu()可以换成cuda吗
             all_preds.extend(predicted.cpu().numpy())
+            # np只能在cpu上，tensor在cuda上
             # all_preds.extend(predicted.cuda().numpy())            
             all_targets.extend(target.numpy())
     

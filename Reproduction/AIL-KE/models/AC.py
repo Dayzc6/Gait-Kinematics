@@ -40,7 +40,7 @@ class Model_AC(nn.Module):
         for ac_stack in self.ac_stacks:
             ac_out=ac_stack(ac_out)
         ac_out=self.conv_out(ac_out)
-        return ac_out
+        return ac_out[:,:,-1] # 单标签，只取最后一个时间步: (batch, 3)
                 
 
         
