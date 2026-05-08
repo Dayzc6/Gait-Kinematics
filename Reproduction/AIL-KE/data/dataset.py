@@ -20,7 +20,7 @@ for csv_file in csv_files:
     
 
 class IMUDataset(Dataset):
-    def __init__(self, csv_file=csv_file, window_size=512, stride=100):    
+    def __init__(self, all_data=all_data, window_size=512, stride=100):    
         """
         window_size: 滑动窗口的大小（时间步长）
         stride: 窗口移动的步长（重叠度由 window_size - stride 决定）
@@ -62,6 +62,7 @@ class IMUDataset(Dataset):
         return len(self.windows)
     
     # 获取单个样本
+    # 这个地方我不懂，__getitem__的作用是什么？index是什么意思？它要输入什么？输出什么？到哪里去？
     def __getitem__(self, index):
         # 返回 (特征tensor, 标签tensor)
         # 模型输出应该是：(batch, 3, window_size)（Conv1d保持序列长度）
@@ -83,27 +84,30 @@ class IMUDataset(Dataset):
         print(data_tensor.shape)
         return data_tensor
 
-    
+# 这个函数应该写在class中吗？
+def get_dataloaders(batch_size=100,window_size=512,stride=100):
+    # 数据集划分
+    # 训练:验证:测试 = 0.7:0.15:0.15
+    dataset=IMUDataset(window_size=window_size,stride=stride).dataset_trans()
 
-    
-# 数据集划分
-# 训练:验证:测试 = 0.7:0.15:0.15
-dataset=IMUDataset().dataset_trans()
+    train_size = int(0.7 * len(dataset))
+    val_size = int(0.15 * len(dataset))
+    test_size = len(dataset) - train_size - val_size
 
-train_size = int(0.7 * len(dataset))
-val_size = int(0.15 * len(dataset))
-test_size = len(dataset) - train_size - val_size
+    train_dataset, val_dataset, test_dataset = random_split(
+        dataset, 
+        [train_size, val_size, test_size],
+        generator=t.Generator().manual_seed(42)  # 固定随机种子，保证可复现
+    )
 
-train_dataset, val_dataset, test_dataset = random_split(
-    dataset, 
-    [train_size, val_size, test_size],
-    generator=t.Generator().manual_seed(42)  # 固定随机种子，保证可复现
-)
+    # 创建DataLoader
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-# 创建DataLoader
-train_loader = DataLoader(train_dataset, batch_size=100, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=100, shuffle=False)
-test_loader = DataLoader(test_dataset, batch_size=100, shuffle=False)
+    return train_loader, val_loader, test_loader
+
+
 
 
 

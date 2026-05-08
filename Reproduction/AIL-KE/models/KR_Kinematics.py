@@ -31,7 +31,7 @@ class Model_KR_Kinematics(nn.Module):
 
         # KR_Kinematics的输出头
         self.conv_kr_kinematics_out=nn.Conv1d(in_channels=hidden_dim,out_channels=kr_kinematics_dim,kernel_size=1)
-        self.softmax=nn.Softmax()
+        
 
     def forward(self,x):
         

@@ -7,6 +7,7 @@ Hidden_dim=64       # 空洞卷积层、特征聚合网络所有网络层的隐�
 stacks=4            # AC和KR均采用4次空洞卷积神经网络（10个DC）堆叠
 
 DEVICE="cuda:0" if t.cuda.is_available() else "cpu"
+print(f'use:{DEVICE}')
 
 # IMU输入维度
 In_dim=(3+3+3)*7    # IMU输入维度，角速度，加速度，四元数，IMU数量n=2

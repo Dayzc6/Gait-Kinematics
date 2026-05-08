@@ -8,7 +8,10 @@ import matplotlib.pyplot as plt
 from config import batch_size, DEVICE, AC_epochs, lr, wd
 from models.AC import Model_AC
 from models.loss_functions import AILKE_Loss
-from data.dataset import train_loader, val_loader, test_loader
+import data.dataset
+
+train_loader=data.dataset.get_dataloaders()[0]
+val_loader=data.dataset.get_dataloaders()[1]
 
 
 model_ac=Model_AC()
@@ -142,6 +145,6 @@ if __name__=="__main__":
         'optimizer_state_dict': trainer.optimizer.state_dict(),
         'train_acc': trainer.history['train_acc'][-1],
     }
-    t.save(checkpoint, r'E:\code\3D-position\Reproduction\AIL-KE\state_dict')
+    t.save(checkpoint, r'E:\code\3D-position\Reproduction\AIL-KE\checkpoint')
 
     

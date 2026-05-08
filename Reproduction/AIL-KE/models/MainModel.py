@@ -28,7 +28,6 @@ class MultiModel(nn.Module):
         self.ac_head=nn.Conv1d(in_channels=hidden_dim,out_channels=ac_dim,kernel_size=1)
         self.kr_head=nn.Conv1d(in_channels=hidden_dim,out_channels=kr_dim,kernel_size=1)
         self.relu=nn.ReLU()
-        # self.softmax=nn.Softmax(dim=1)
 
     def forward(self,x):
         # 局部特征列表，不在self中保存，防止内存溢出

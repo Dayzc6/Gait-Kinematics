@@ -3,18 +3,19 @@ from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
 import torch
 from models.AC import Model_AC
-from data.dataset import test_loader
+import data.dataset
 from config import DEVICE,lr,wd
 
-model=Model_AC()
+model_ac=Model_AC()
+test_loader=data.dataset.get_dataloaders()[2]
 
 # 加载参数
-model.load_state_dict(torch.load(r'E:\code\3D-position\Reproduction\AIL-KE\state_dict'))
+model_ac.load_state_dict(torch.load(r'E:\code\3D-position\Reproduction\AIL-KE\state_dict'))
 
 # 加载checkpoint
-checkpoint = torch.load(r'E:\code\3D-position\Reproduction\AIL-KE\state_dict')
-model.load_state_dict(checkpoint['model_state_dict'])
-torch.optim.Adam(model.parameters(),lr=lr,weight_decay=wd).load_state_dict(checkpoint['optimizer_state_dict'])
+checkpoint = torch.load(r'E:\code\3D-position\Reproduction\AIL-KE\checkpoint',map_location=DEVICE)
+model_ac.load_state_dict(checkpoint['model_state_dict'])
+torch.optim.Adam(model_ac.parameters(),lr=lr,weight_decay=wd).load_state_dict(checkpoint['optimizer_state_dict'])
 start_epoch = checkpoint['epoch']
 
 def evaluate(model, test_loader, device):
@@ -28,7 +29,9 @@ def evaluate(model, test_loader, device):
             output = model(data)
             _, predicted = output.max(1)
             
+            # 这里的cpu()可以换成cuda吗
             all_preds.extend(predicted.cpu().numpy())
+            # all_preds.extend(predicted.cuda().numpy())            
             all_targets.extend(target.numpy())
     
     # 混淆矩阵
@@ -44,4 +47,4 @@ def evaluate(model, test_loader, device):
     return cm, report
 
 if __name__=='__main__':
-    evaluate(model,test_loader,DEVICE)
+    evaluate(model_ac,test_loader,DEVICE)
