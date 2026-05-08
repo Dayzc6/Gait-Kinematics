@@ -13,7 +13,7 @@ test_loader=data.dataset.get_dataloaders()[2]
 # model_ac.load_state_dict(torch.load(r'E:\code\3D-position\Reproduction\AIL-KE\state_dict'))
 
 # 加载checkpoint,这两个二选一
-checkpoint = torch.load(r'E:\code\3D-position\Reproduction\AIL-KE\checkpoint\checkpoint.pt',map_location=DEVICE)
+checkpoint = torch.load(r'E:\code\3D-position\Reproduction\AIL-KE\checkpoint\checkpoint_ac.pt',map_location=DEVICE)
 model_ac.load_state_dict(checkpoint['model_state_dict'])
 
 def evaluate(model, test_loader, device):
@@ -31,7 +31,7 @@ def evaluate(model, test_loader, device):
             all_preds.extend(predicted.cpu().numpy())
             # np只能在cpu上，tensor在cuda上
             # all_preds.extend(predicted.cuda().numpy())            
-            all_targets.extend(target.numpy())
+            all_targets.extend(target.cpu().numpy())
     
     # 混淆矩阵
     cm = confusion_matrix(all_targets, all_preds)

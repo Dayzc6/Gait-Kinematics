@@ -35,7 +35,7 @@ class IMUDataset(Dataset):
         # IMU数据的加速度、角速度、角度量纲完全不同（加速度±2g，角速度±500°/s，角度~±180°），
         # 不归一化会导致梯度爆炸/消失。
         self.mean=self.features.mean(axis=0) 
-        self.std=self.features.std(axis=0)
+        self.std=self.features.std(axis=0) + 1e-8           # 加极小值防止除零
         self.features=(self.features-self.mean)/self.std
 
         # 提取标签
@@ -48,7 +48,7 @@ class IMUDataset(Dataset):
             # self.windows.append(self.features[i+window_size-1])
             self.windows.append(self.features[i:i+window_size])
             # self.windows已经是 (N, window_size, In_dim)
-            print(np.shape(self.windows))
+            # print(np.shape(self.windows))
 
             # 标签取窗口最后一个时刻的标签（或多数投票）
             # 标签取窗口最后一个时刻和完整取完有什么区别？
@@ -69,8 +69,8 @@ class IMUDataset(Dataset):
         # 模型输出应该是：(batch, 3, window_size)（Conv1d保持序列长度）
         # 注意：PyTorch的CrossEntropyLoss需要标签是 1D LongTensor
         # 
-        x=t.FloatTensor(self.windows[index])
-        y=t.LongTensor([self.window_labels[index]])
+        x=t.FloatTensor(self.windows[index])                # (512, 63)
+        y=t.tensor(self.window_labels[index],dtype=t.long)  # 标量，不是列表
 
         # ⚠️ 重要：PyTorch的CNN/Conv1d expects input of shape [batch, channels, length]
         # 所以需要转置： [window_size, 63] -> [63, window_size]

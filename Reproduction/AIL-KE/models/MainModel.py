@@ -51,7 +51,7 @@ class MultiModel(nn.Module):
         logits_ac=self.ac_head(ac_out)
         pred_kr=self.kr_head(kr_out)
 
-        return self.softmax(logits_ac), pred_kr
+        return logits_ac, pred_kr
     
 
 

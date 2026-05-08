@@ -1,5 +1,6 @@
 # 主训练程序
 import time
+import os
 import torch as t
 import numpy as np
 import pandas as pd
@@ -50,6 +51,14 @@ class MainTrain(nn.Module):
             # 计算损失
             # CrossEntropy 需要输入 [N, C, L] 或 [N, C]
             loss=self.criterion(output_ac,target_ac)
+
+            if batch_idx == 0 and epoch == 0:
+                print(f"output_ac shape: {output_ac.shape}")
+                print(f"target_ac shape: {target_ac.shape}")
+                print(f"output_ac sample: {output_ac[0]}")
+                print(f"target_ac sample: {target_ac[0]}")
+                print(f"loss value: {loss.item()}")      
+
             # 反向传播
             loss.backward()
             # 更新参数
@@ -136,7 +145,7 @@ if __name__=="__main__":
     trainer=MainTrain(model=model_ac,train_loader=train_loader,val_loader=val_loader,criterion=criterion)
     trainer.train(AC_epochs)
 
-    t.save(model_ac.state_dict(),r'E:\code\3D-position\Reproduction\AIL-KE\state_dict')
+    # t.save(model_ac.state_dict(),r'E:\code\3D-position\Reproduction\AIL-KE\state_dict')
 
     # 保存更多信息（包含优化器状态等）
     checkpoint = {
