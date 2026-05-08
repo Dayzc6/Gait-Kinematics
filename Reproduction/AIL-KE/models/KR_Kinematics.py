@@ -23,8 +23,8 @@ class Model_KR_Kinematics(nn.Module):
         self.conv_kr_in=nn.Conv1d(in_channels=in_dim,out_channels=hidden_dim,kernel_size=1)
 
         # 预定义所有的扩张层，存入ModuleList
-        self.stacks_ac=nn.ModuleList([DC.DCStack(hidden_dim)] for _ in range(stacks))
-        self.stacks_kr=nn.ModuleList([DC.DCStack(hidden_dim)] for _ in range(stacks))        
+        self.stacks_ac=nn.ModuleList([DC.DCStack(hidden_dim) for _ in range(stacks)])
+        self.stacks_kr=nn.ModuleList([DC.DCStack(hidden_dim) for _ in range(stacks)])        
 
         # 4个独立的FAN模块
         self.FANs=nn.ModuleList([FAN.Model_FAN(hidden_dim) for _ in range(stacks)])

@@ -48,6 +48,7 @@ KR_Kinematics_dim=9
 # 右踝角度
 KR_Joint_dim=7
 
+KR_dim=None
 
 # Adam
 lr=10**(-4) # learning rate

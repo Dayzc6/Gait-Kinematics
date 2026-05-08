@@ -1,3 +1,5 @@
+# 该模型为主要的思路复现，并不作为实际模型使用
+
 import torch as t
 import torch.nn as nn
 import pandas as pd
@@ -26,7 +28,7 @@ class MultiModel(nn.Module):
         self.ac_head=nn.Conv1d(in_channels=hidden_dim,out_channels=ac_dim,kernel_size=1)
         self.kr_head=nn.Conv1d(in_channels=hidden_dim,out_channels=kr_dim,kernel_size=1)
         self.relu=nn.ReLU()
-        self.softmax=nn.Softmax(dim=1)
+        # self.softmax=nn.Softmax(dim=1)
 
     def forward(self,x):
         # 局部特征列表，不在self中保存，防止内存溢出
@@ -43,7 +45,7 @@ class MultiModel(nn.Module):
         for i in range(stacks):
             # 注入逻辑：KR输入 = 前一层输出 + FAN(对应AC层输出)      
             injected_feat=self.FANs[i](ac_features[i])
-            kr_out=self.ac_stacks[i](kr_out)
+            kr_out=self.kr_stacks[i](kr_out)
             kr_out=kr_out + injected_feat
         
         # 最终输出

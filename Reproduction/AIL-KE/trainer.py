@@ -11,7 +11,7 @@ from models.loss_functions import AILKE_Loss
 from data.dataset import train_loader, val_loader, test_loader
 
 
-model=Model_AC()
+model_ac=Model_AC()
 criterion=AILKE_Loss()
 
 class MainTrain(nn.Module):
@@ -35,7 +35,8 @@ class MainTrain(nn.Module):
         self.model.train() # 开启训练模式（开启dropout、batchnorm等）
         total_loss, correct, total = 0, 0, 0
 
-        for batch_size, (data,target_ac) in enumerate(self.train_loader): # 这里不加（）可以吗？为什么要加（）？
+        # enumerate返回的是(index, (data, target))
+        for batch_idx, (data,target_ac) in enumerate(self.train_loader): # 这里不加（）可以吗？为什么要加（）？
             data=data.to(self.device)
             target_ac=target_ac.to(self.device)
 
@@ -129,15 +130,17 @@ class MainTrain(nn.Module):
 
 if __name__=="__main__":
     # AC模型
-    MainTrain()
-    t.save(model.state_dict(),r'E:\code\3D-position\Reproduction\AIL-KE\state_dict')
+    trainer=MainTrain(model=model_ac,val_loader=val_loader,criterion=criterion)
+    trainer.train(AC_epochs)
+
+    t.save(model_ac.state_dict(),r'E:\code\3D-position\Reproduction\AIL-KE\state_dict')
 
     # 保存更多信息（包含优化器状态等）
     checkpoint = {
         'epoch': AC_epochs,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': t.optim.Adam(model.parameters(),lr=lr,weight_decay=wd).state_dict(),
-        'loss': 0.5,
+        'model_state_dict': model_ac.state_dict(),
+        'optimizer_state_dict': trainer.optimizer.state_dict(),
+        'train_acc': trainer.history['train_acc'][-1],
     }
     t.save(checkpoint, r'E:\code\3D-position\Reproduction\AIL-KE\state_dict')
 
