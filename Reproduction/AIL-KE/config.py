@@ -3,8 +3,8 @@ import torch as t
 # 参数
 num_layers=10       # 卷积层数:0,1,2,...9
 Kernel_size=3       # 卷积核统一设置为3
-Hidden_dim=64       # 空洞卷积层、特征聚合网络所有网络层的隐藏维度均设置为 64
-stacks=4            # AC和KR均采用4次空洞卷积神经网络（10个DC）堆叠
+Hidden_dim=64       # 空洞卷积层、特征聚合网络所有网络层的隐藏维度均设置为 64  如果是32，效果降低2.5%左右
+stacks=2            # AC和KR均采用4次空洞卷积神经网络（10个DC）堆叠，如果是2，引入早停机制的训练效果优于同条件下4个堆叠
 
 DEVICE="cuda:0" if t.cuda.is_available() else "cpu"
 print(f'use:{DEVICE}')
@@ -53,7 +53,7 @@ KR_dim=None
 
 # Adam
 lr=10**(-4) # learning rate
-wd=10**(-7) # weight decay
+wd=10**(-4) # weight decay
 
 
 # train_epochs

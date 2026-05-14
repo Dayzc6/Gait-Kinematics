@@ -5,8 +5,8 @@ import torch as t
 import torch.nn as nn
 import pandas as pd
 import numpy as np
-import DC
-from config import In_dim,KR_dim
+import DC, FAN
+from config import In_dim,KR_Joint_dim
 from config import Hidden_dim
 from config import num_layers
 from config import stacks
@@ -14,25 +14,36 @@ from config import stacks
 # KR需要4个DC进行堆叠
 # KR的DC需要注入经过FAN处理后的AC特征
 # 也就是说，需要循环四次
+# 在500个epoch的ac训练完后进行1000个epoch训练
 
-class Model_KR(nn.Module):
-    def __init__(self,in_dim=In_dim,hidden_dim=Hidden_dim,kr_dim=KR_dim):
+
+class Model_KR_Joint(nn.Module):
+    def __init__(self,in_dim=In_dim,hidden_dim=Hidden_dim,kr_joint_dim=KR_Joint_dim):
         super().__init__()
-        self.conv_in=nn.Conv1d(in_channels=in_dim,out_channels=hidden_dim,kernel_size=1)
+        self.conv_ac_in=nn.Conv1d(in_channels=in_dim,out_channels=hidden_dim,kernel_size=1)
+        self.conv_kr_in=nn.Conv1d(in_channels=in_dim,out_channels=hidden_dim,kernel_size=1)
 
         # 预定义所有的扩张层，存入ModuleList
-        self.layers=nn.ModuleList([
-            DC.DilatedResidualLayer(dilation=2**i,in_channels=hidden_dim,out_channels=hidden_dim)
-            for i in range(num_layers)
-        ])
+        self.stacks_ac=nn.ModuleList([DC.DCStack(hidden_dim) for _ in range(stacks)])
+        self.stacks_kr=nn.ModuleList([DC.DCStack(hidden_dim) for _ in range(stacks)])        
+
+        # 4个独立的FAN模块
+        self.FANs=nn.ModuleList([FAN.Model_FAN(hidden_dim) for _ in range(stacks)])
+
+        # KR_Kinematics的输出头
+        self.conv_kr_kinematics_out=nn.Conv1d(in_channels=hidden_dim,out_channels=kr_joint_dim,kernel_size=1)
         
-        self.conv_out=nn.Conv1d(in_channels=hidden_dim,out_channels=kr_dim,kernel_size=1)
-
     def forward(self,x):
-        out=self.conv_in(x)
-        for layer in self.layers:
+        ac_out=self.conv_ac_in(x)
+        kr_joint_out=ac_out.copy()
+        
+        for i in range(stacks):
+            ac_out=self.stacks_ac[i](ac_out)
+            kr_joint_out=self.stacks_kr[i](kr_joint_out)
+            fan_out=self.FANs[i](ac_out)
+            kr_joint_out=fan_out+kr_joint_out
 
-            out=layer(out)  
-        # out=self.conv_out(out)
-        return out
+        kr_joint_out=self.conv_kr_kinematics_out(kr_joint_out)  
+
+        return kr_joint_out
     

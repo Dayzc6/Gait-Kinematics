@@ -5,8 +5,8 @@ import torch
 from models.AC import Model_AC
 import data.dataset
 from config import DEVICE,lr,wd
-
-model_ac=Model_AC()
+# 在创建模型后，加载权重前或后，把模型移到 GPU
+model_ac=Model_AC().to(DEVICE)
 test_loader=data.dataset.get_dataloaders()[2]
 
 # 加载参数
@@ -18,6 +18,7 @@ model_ac.load_state_dict(checkpoint['model_state_dict'])
 
 def evaluate(model, test_loader, device):
     model.eval()
+    # all_preds 和 all_targets 是二维数组列表，不是一维标签列表。
     all_preds = []
     all_targets = []
     
@@ -28,10 +29,10 @@ def evaluate(model, test_loader, device):
             _, predicted = output.max(1)
             
             # 这里的cpu()可以换成cuda吗
-            all_preds.extend(predicted.cpu().numpy())
+            all_preds.extend(predicted.cpu().numpy().flatten())
             # np只能在cpu上，tensor在cuda上
             # all_preds.extend(predicted.cuda().numpy())            
-            all_targets.extend(target.cpu().numpy())
+            all_targets.extend(target.cpu().numpy().flatten())
     
     # 混淆矩阵
     cm = confusion_matrix(all_targets, all_preds)
