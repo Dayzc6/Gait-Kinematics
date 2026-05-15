@@ -37,7 +37,7 @@ AC_dim=3            # AC的输出维度，分类（3类）
 # right step speed (m/s)
 # step width (cm)
 # cycle (s),这个不包含在预测类型中
-KR_Kinematics_dim=9            
+KR_Kinematics_dim=13            
 
 # 关节参数
 # 上身角度
@@ -62,3 +62,6 @@ AC_epochs=500       # AC先训练500个epoch
 KR_epochs=1000      # KR再AC的基础上继续训练1000个epoch
 Together_epochs=500 # 联合训练500个epoch
 
+import os
+CHECKPOINT_DIR = r'E:\code\3D-position\Reproduction\AIL-KE\checkpoint'
+os.makedirs(CHECKPOINT_DIR, exist_ok=True)

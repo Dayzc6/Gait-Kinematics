@@ -5,7 +5,7 @@ import torch as t
 import torch.nn as nn
 import pandas as pd
 import numpy as np
-from models import DC
+from models import DC, FAN
 from config import In_dim,KR_dim
 from config import Hidden_dim
 from config import num_layers

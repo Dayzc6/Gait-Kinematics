@@ -41,8 +41,7 @@ kr_kinematics_labels=[
     'right_stride_length',
     'left_step_speed',
     'right_step_speed',
-    'step_width',
-    'cycle_time'
+    'step_width'
 ]
 
 
@@ -73,10 +72,24 @@ class IMUDataset(Dataset):
         self.kr_kinematics_labels=self.data[kr_kinematics_labels].values  # 步态参数标签
         self.kr_joint_labels=self.data[kr_joint_labels].values            # 关节参数标签
 
+        # 标签要做做归一化
+        self.kr_kinematics_mean=self.kr_kinematics_labels.mean(axis=0)
+        self.kr_kinematics_std=self.kr_kinematics_labels.std(axis=0) + 1e-8
+        self.kr_kinematics_features=(self.kr_kinematics_labels-self.kr_kinematics_mean)/self.kr_kinematics_std
+
+        self.kr_joint_mean=self.kr_joint_labels.mean(axis=0)
+        self.kr_joint_std=self.kr_joint_labels.std(axis=0) + 1e-8
+        self.kr_joint_features=(self.kr_joint_labels-self.kr_joint_mean)/self.kr_joint_std
+
+
         # 滑动窗口切分
         self.windows=[]
         # self.window_labels=[] 单标签
         self.window_labels_ac_seq=[]
+
+        self.window_train_labels_kr_kin_seq=[]
+        self.window_train_labels_kr_joint_seq=[]
+
         self.window_labels_kr_kinematics_seq=[]
         self.window_labels_kr_joint_seq=[]
 
@@ -95,6 +108,12 @@ class IMUDataset(Dataset):
             # 如果需要重建整个步态周期的连续变化，才用序列标签。
             # 复现模型更适合用seq2seq
             self.window_labels_ac_seq.append(self.ac_labels[i:i+window_size])
+
+            # 训练集和测试集需要归一化
+            self.window_train_labels_kr_kin_seq.append(self.kr_kinematics_features[i:i+window_size])
+            self.window_train_labels_kr_joint_seq.append(self.kr_joint_features[i:i+window_size])
+
+            # 评估集不用归一化
             self.window_labels_kr_kinematics_seq.append(self.kr_kinematics_labels[i:i+window_size])
             self.window_labels_kr_joint_seq.append(self.kr_joint_labels[i:i+window_size])
 
@@ -124,20 +143,30 @@ class IMUDataset(Dataset):
         # y_seq=t.LongTensor(y_seq)
         y_ac_seq=t.tensor(y_ac_seq,dtype=t.long)
 
+        y_train_kr_kin_seq=self.window_train_labels_kr_kin_seq[index]
+        y_train_kr_kin_seq=t.tensor(y_train_kr_kin_seq,dtype=t.float32)
+        y_train_kr_kin_seq=y_train_kr_kin_seq.T
+
+        y_train_kr_joint_seq=self.window_train_labels_kr_joint_seq[index]
+        y_train_kr_joint_seq=t.tensor(y_train_kr_joint_seq,dtype=t.float32)
+        y_train_kr_joint_seq=y_train_kr_joint_seq.T
+
         # kr_kinematics
+        # 回归任务不能用long
         y_kr_kinematics_seq=self.window_labels_kr_kinematics_seq[index]
-        y_kr_kinematics_seq=t.tensor(y_kr_kinematics_seq,dtype=t.long)
+        y_kr_kinematics_seq=t.tensor(y_kr_kinematics_seq,dtype=t.float32)   # (512, 9)
+        y_kr_kinematics_seq = y_kr_kinematics_seq.T  # (9, 512)，与模型输出匹配
 
         # kr_joint
         y_kr_joint_seq=self.window_labels_kr_joint_seq[index]
-        y_kr_joint_seq=t.tensor(y_kr_joint_seq,dtype=t.long)
-
+        y_kr_joint_seq=t.tensor(y_kr_joint_seq,dtype=t.float32) # (512, 7)
+        y_kr_joint_seq = y_kr_joint_seq.T  # (7, 512)，与模型输出匹配
 
         # ⚠️ 重要：PyTorch的CNN/Conv1d expects input of shape [batch, channels, length]
         # 所以需要转置： [window_size, 63] -> [63, window_size]
         x = x.T
         
-        return x, y_ac_seq, y_kr_kinematics_seq, y_kr_joint_seq
+        return x, y_ac_seq, y_train_kr_kin_seq, y_train_kr_joint_seq, y_kr_kinematics_seq, y_kr_joint_seq 
 
 # 这个函数应该写在class中吗？
 def  get_dataloaders(batch_size=100,window_size=512,stride=50):

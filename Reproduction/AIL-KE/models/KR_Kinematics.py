@@ -3,12 +3,9 @@
 # output：速度/轨迹 或 关节角度
 import torch as t
 import torch.nn as nn
-import pandas as pd
-import numpy as np
-import DC, FAN
+from models import DC, FAN
 from config import In_dim,KR_Kinematics_dim
 from config import Hidden_dim
-from config import num_layers
 from config import stacks
 
 
@@ -35,13 +32,16 @@ class Model_KR_Kinematics(nn.Module):
         
     def forward(self,x):
         ac_out=self.conv_ac_in(x)
-        kr_out=ac_out.copy()
+        # 不需要梯度
+        kr_kinematics_out = ac_out.detach().clone()
+
         for i in range(stacks):
             ac_out=self.stacks_ac[i](ac_out)
-            kr_out=self.stacks_kr[i](kr_out)
+            kr_kinematics_out=self.stacks_kr[i](kr_kinematics_out)
             fan_out=self.FANs[i](ac_out)
-            kr_out=fan_out+kr_out
-        kr_out=self.conv_kr_kinematics_out(kr_out)  
+            kr_kinematics_out=fan_out+kr_kinematics_out
+        
+        kr_kinematics_out=self.conv_kr_kinematics_out(kr_kinematics_out)  
         # out=self.conv_out(out)
-        return kr_out
+        return kr_kinematics_out
     

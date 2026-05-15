@@ -3,12 +3,9 @@
 # output：速度/轨迹 或 关节角度
 import torch as t
 import torch.nn as nn
-import pandas as pd
-import numpy as np
-import DC, FAN
+from models import DC, FAN
 from config import In_dim,KR_Joint_dim
 from config import Hidden_dim
-from config import num_layers
 from config import stacks
 
 # KR需要4个DC进行堆叠
@@ -35,8 +32,9 @@ class Model_KR_Joint(nn.Module):
         
     def forward(self,x):
         ac_out=self.conv_ac_in(x)
-        kr_joint_out=ac_out.copy()
-        
+        # 不需要梯度
+        kr_joint_out = ac_out.detach().clone()
+
         for i in range(stacks):
             ac_out=self.stacks_ac[i](ac_out)
             kr_joint_out=self.stacks_kr[i](kr_joint_out)
